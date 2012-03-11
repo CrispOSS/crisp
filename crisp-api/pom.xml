@@ -4,19 +4,19 @@
 
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>nl.cwi.crisp.examples</groupId>
-	<artifactId>crisp-example-primesieves</artifactId>
+	<groupId>nl.cwi.crisp.crisp-api</groupId>
+	<name>Crisp :: Crisp API</name>
+	<artifactId>crisp-api</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
-	<name>Crisp :: Examples :: Prime Sieves</name>
-	<inceptionYear>2010</inceptionYear>
 	<parent>
 		<groupId>nl.cwi.crisp</groupId>
-		<artifactId>crisp-examples-parent</artifactId>
-		 <version>1.0-SNAPSHOT</version>
+		<artifactId>crisp-parent</artifactId>
+		<version>1.0-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
+	<inceptionYear>2010</inceptionYear>
 	<description>
 	</description>
 

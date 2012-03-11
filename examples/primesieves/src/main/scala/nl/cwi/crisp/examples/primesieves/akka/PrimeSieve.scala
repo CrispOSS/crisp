@@ -1,12 +1,14 @@
 package nl.cwi.crisp.examples.primesieves.akka
 
 import akka.actor._
-import akka.actor.Actor._
-
+import akka.actor.ActorRef
+import akka.actor.Props
+ 
 case class sieve(n: Int)
 case class finish(n: Int)
 
 class Sieve(val p: Int) extends Actor {
+  
 
   var next: ActorRef = null
 
@@ -15,8 +17,8 @@ class Sieve(val p: Int) extends Actor {
       if (next != null) {
         next ! sieve(n)
       } else {
-        next = actorOf(new Sieve(n))
-        next.start
+        next = context.actorOf(Props(new Sieve(n)), name = "Sieve_" + n)
+        // context.start(next)
         // println(n + " is prime")
       }
     }
@@ -46,9 +48,12 @@ class Sieve(val p: Int) extends Actor {
 
 object Generator {
 
+  val system = ActorSystem("PrimeSieves")
+  
   def generate(n: Int): Unit = {
-    val p2 = actorOf(new Sieve(2))
-    p2.start
+  	
+    val p2 = system.actorOf(Props(new Sieve(2)), name = "Sieve_2")
+    // system.start(p2)
     for (i <- 3 to n) {
     	p2 ! sieve(i)
     }
