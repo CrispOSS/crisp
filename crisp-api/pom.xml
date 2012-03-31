@@ -4,7 +4,7 @@
 
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>nl.cwi.crisp.crisp-api</groupId>
+	<groupId>nl.cwi.crisp</groupId>
 	<name>Crisp :: Crisp API</name>
 	<artifactId>crisp-api</artifactId>
 	<version>1.0-SNAPSHOT</version>

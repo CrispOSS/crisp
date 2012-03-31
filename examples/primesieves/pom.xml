@@ -49,6 +49,10 @@
 			<groupId>com.typesafe.akka</groupId>
 			<artifactId>akka-actor</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>nl.cwi.crisp</groupId>
+			<artifactId>crisp-api</artifactId>
+		</dependency>
 	</dependencies>
 
 </project>

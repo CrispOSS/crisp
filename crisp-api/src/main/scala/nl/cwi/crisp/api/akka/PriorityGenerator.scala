@@ -4,7 +4,8 @@ class PriorityGenerator extends akka.dispatch.PriorityGenerator {
   
   override def gen(message: Any): Int = {
     var msg: PriorityMessage = message.asInstanceOf[PriorityMessage]
-    msg.priority.getOrElse(0)
+    val p = msg.priority.getOrElse(0)
+    p
   } 
   
 }
