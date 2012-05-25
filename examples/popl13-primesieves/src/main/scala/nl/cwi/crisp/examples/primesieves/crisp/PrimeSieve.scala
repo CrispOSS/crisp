@@ -5,20 +5,23 @@ import nl.cwi.crisp.api.akka.PriorityMessage
 import akka.actor._
 import akka.actor.ActorRef
 import akka.actor.Props
+
+import java.util.concurrent.atomic.AtomicInteger
  
 case class sieve(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 case class finish(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 
-class Sieve(val p: Int) extends Actor {
+class Sieve(val p: Int, val msgs: AtomicInteger) extends Actor {
   
   var next: ActorRef = null
 
   def _sieve(n: Int) = {
+  	msgs.incrementAndGet()
     if (isPrime(n)) {
       if (next != null) {
         next ! sieve(n, Some(n))
       } else {
-        next = context.actorOf(Props(new Sieve(n)), name = "Sieve_" + n)
+        next = context.actorOf(Props(new Sieve(n, msgs)), name = "Sieve_" + n)
       }
     }
   }
@@ -36,7 +39,7 @@ class Sieve(val p: Int) extends Actor {
     		next ! finish(n)
     	} else {
     		val time = System.currentTimeMillis - Main.start
-    		println(n + "," + time)
+    		println(n + "," + msgs.get() + "," + time)
     		System.exit(0)
     	}
     }
@@ -48,10 +51,11 @@ class Sieve(val p: Int) extends Actor {
 object Generator {
 
   val system = ActorSystem("PrimeSieves")
+  val msgs = new AtomicInteger(0)
   
   def generate(n: Int): Unit = {
   	
-    val p2 = system.actorOf(Props(new Sieve(2)), name = "Sieve_2")
+    val p2 = system.actorOf(Props(new Sieve(2, msgs)), name = "Sieve_2")
     for (i <- 3 to n) {
     	p2 ! sieve(i)
     }
