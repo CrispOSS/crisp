@@ -6,7 +6,7 @@ import akka.actor._
 import akka.actor.ActorRef
 import akka.actor.Props
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
  
 case class sieve(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 case class finish(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
@@ -51,7 +51,7 @@ class Sieve(val p: Int, val msgs: AtomicInteger) extends Actor {
 object Generator {
 
   val system = ActorSystem("PrimeSieves")
-  val msgs = new AtomicInteger(0)
+  val msgs = new AtomicLong(0)
   
   def generate(n: Int): Unit = {
   	
