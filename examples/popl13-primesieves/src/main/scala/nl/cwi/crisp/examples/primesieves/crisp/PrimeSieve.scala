@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 case class sieve(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 case class finish(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 
-class Sieve(val p: Int, val msgs: AtomicInteger) extends Actor {
+class Sieve(val p: Int, val msgs: AtomicLong) extends Actor {
   
   var next: ActorRef = null
 
