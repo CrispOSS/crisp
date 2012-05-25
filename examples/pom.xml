@@ -36,6 +36,7 @@
 	<modules>
 		<module>p2p</module>
 		<module>primesieves</module>
+		<module>popl13-primesieves</module>
 	</modules>
 
 </project>

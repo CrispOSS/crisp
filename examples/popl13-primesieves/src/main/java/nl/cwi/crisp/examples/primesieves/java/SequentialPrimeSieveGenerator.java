@@ -1,0 +1,54 @@
+package nl.cwi.crisp.examples.primesieves.java;
+
+/**
+ * A sequential implementation of Prime Sieves in Java
+ *
+ * @author Behrooz Nobakht
+ * 
+ */
+class SequentialPrimeSieveGenerator {
+
+	private Integer p;
+	private SequentialPrimeSieveGenerator next;
+	
+	public SequentialPrimeSieveGenerator() {
+	}
+
+	SequentialPrimeSieveGenerator(Integer p) {
+		this.p = p;
+	}
+
+	public void compute(Integer n) {
+		boolean prime = true;
+		Integer d = n / p;
+		Integer r = n - d * p;
+		if (r == 0) {
+			prime = false;
+		} else {
+			if (next != null) {
+				next.compute(n);
+			} else {
+				prime = true;
+				next = new SequentialPrimeSieveGenerator(n);
+			}
+		}
+	}
+
+	public void generate(Integer n) {
+		long start = System.currentTimeMillis();
+		SequentialPrimeSieveGenerator p2 = new SequentialPrimeSieveGenerator(2);
+		for (int i = 3; i <= n; ++i) {
+			p2.compute(i);
+		}
+		long end = System.currentTimeMillis();
+		System.out.println(n + "," + (end - start));
+	}
+	
+	public static void main(String[] args) {
+		Integer n = Integer.valueOf(args[0]);
+		SequentialPrimeSieveGenerator g = new SequentialPrimeSieveGenerator();
+		g.generate(n);
+	}
+
+}
+
