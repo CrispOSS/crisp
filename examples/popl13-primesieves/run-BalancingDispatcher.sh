@@ -4,5 +4,5 @@
 cp src/main/resources/BalancingDispatcher.conf src/main/resources/application.conf
 mvn -q compile
 echo ">>> Balancing Dispatcher"
-./run-java.sh >> BalancingDispatcher.csv
+./run-java.sh 
 

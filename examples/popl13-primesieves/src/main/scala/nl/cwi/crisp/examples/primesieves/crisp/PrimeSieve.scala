@@ -11,12 +11,11 @@ import java.util.concurrent.atomic.AtomicLong
 case class sieve(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 case class finish(n: Int, var p: Option[Int] = None) extends PriorityMessage(p)
 
-class Sieve(val p: Int, val msgs: AtomicLong) extends Actor {
+class Sieve(val p: Int, msgs: AtomicLong) extends Actor {
   
   var next: ActorRef = null
 
   def _sieve(n: Int) = {
-  	msgs.incrementAndGet()
     if (isPrime(n)) {
       if (next != null) {
         next ! sieve(n, Some(n))
@@ -33,7 +32,11 @@ class Sieve(val p: Int, val msgs: AtomicLong) extends Actor {
   }
 
   def receive = {
-    case sieve(n: Int, p: Option[Int]) => _sieve(n) 
+    case sieve(n: Int, p: Option[Int]) => {
+    	println("msg: ["+this.p+", "+n+"]")
+	  	msgs.incrementAndGet()
+    	_sieve(n)
+    } 
     case finish(n: Int, p: Option[Int]) => {
     	if (next != null) {
     		next ! finish(n)
@@ -54,12 +57,12 @@ object Generator {
   val msgs = new AtomicLong(0)
   
   def generate(n: Int): Unit = {
-  	
+  	println("Starting for: " + n)
     val p2 = system.actorOf(Props(new Sieve(2, msgs)), name = "Sieve_2")
     for (i <- 3 to n) {
-    	p2 ! sieve(i)
+    	p2 ! sieve(i, Some(i))
     }
-    p2 ! finish(n)
+    p2 ! finish(n, Some(n+1))
   }
 }
 
