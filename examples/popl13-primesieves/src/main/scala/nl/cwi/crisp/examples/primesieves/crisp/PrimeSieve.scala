@@ -33,7 +33,7 @@ class Sieve(val p: Int, msgs: AtomicLong) extends Actor {
 
   def receive = {
     case sieve(n: Int, p: Option[Int]) => {
-    	println("msg: ["+this.p+", "+n+"]")
+    	//println("msg: ["+this.p+", "+n+"]")
 	  	msgs.incrementAndGet()
     	_sieve(n)
     } 
@@ -57,7 +57,7 @@ object Generator {
   val msgs = new AtomicLong(0)
   
   def generate(n: Int): Unit = {
-  	println("Starting for: " + n)
+  	//println("Starting for: " + n)
     val p2 = system.actorOf(Props(new Sieve(2, msgs)), name = "Sieve_2")
     for (i <- 3 to n) {
     	p2 ! sieve(i, Some(i))
