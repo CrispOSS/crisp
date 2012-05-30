@@ -22,8 +22,10 @@ class CrispMailbox() extends MailboxType {
    */
   def this(settings: ActorSystem.Settings, config: Config) = this()
   
+  val mailboxSize: Int = 1024 * 32;
+  
   final override def create(owner: Option[ActorContext]): MessageQueue =
-    new PriorityBlockingQueue[Envelope](11, comparator) with QueueBasedMessageQueue with UnboundedMessageQueueSemantics {
+    new PriorityBlockingQueue[Envelope](mailboxSize, comparator) with QueueBasedMessageQueue with UnboundedMessageQueueSemantics {
       final def queue: Queue[Envelope] = this
     }
   
