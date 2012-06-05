@@ -3,6 +3,7 @@ package nl.cwi.crisp.examples.p2p.scala
 import java.lang.Object
 import java.util.Collection
 import java.util.Random
+import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConversions._
 
@@ -16,166 +17,141 @@ import akka.dispatch.Future
 import akka.pattern.ask
 import akka.util.duration.intToDurationInt
 import akka.util.Timeout
+
 import nl.cwi.crisp.api.akka.CrispActor
 import nl.cwi.crisp.api.akka.PriorityMessage
 import nl.cwi.crisp.examples.p2p.Client
 import nl.cwi.crisp.examples.p2p.Peer
 import nl.cwi.crisp.examples.p2p.Storage
 
-class Node(val id: String, val storage: Storage) extends Actor {
+class Node(val id: String, val storage: Storage, msgs: AtomicLong) extends Actor {
 
   var peers: List[ActorRef] = List()
   
   def getId = id
 
   def receive = {
-    // serving requests
-    case _list(p: Option[Int]) => {
-      sender ! this.list()
-    }
-    case _download(fileName: String, p: Option[Int]) => {
-      sender ! _file(this.download(fileName))
-    }
-    case _upload(fileName: String, file: Object, p: Option[Int]) => {
-      this.upload(fileName, file)
-    }
     case _search(query: String, p: Option[Int]) => {
-      sender ! _files(this.search(query))
+      sender ! (this.search(query))
     }
     case _register(peer: ActorRef, p: Option[Int]) => {
       peers = peer :: peers
       sender ! None	
     }
-    // processing responses
-    case _files(peerList: Collection[String], p: Option[Int]) => {
-      // A listing is received
-      // println("Received [" + sender + "] listing: " + peerList)
-    }
-    case _clients(searchResult: Collection[ActorRef], p: Option[Int]) => {
-      // The list of Clients having the query
-      // println("Received search result from [" + sender + "]: " + searchResult)
-    }
-    case _file(file: Object, p: Option[Int]) => {
-      // Received a download
-      // println("Download a file: " + file.getClass())
+    case searchResult: Collection[String] => {
+    	println("received search result: " + searchResult + " from " + sender)
     }
   }
 
   // Client
-
   def list(): Collection[String] =
     storage.list()
 
-  def download(fileName: String): Object =
-    storage.load(fileName)
-
-  def upload(fileName: String, file: Object) {
-    storage.persist(fileName, file)
-  }
 
   // Server
-
   def search(query: String): Collection[String] = {
     var result: List[String] = List[String]()
     this.list().toList.foreach { q =>
     	if (q.contains(query)) {
-    		result = query :: result
+    		result = q :: result
     	}
     }
-    implicit val timeout = Timeout(1 hour)
+    implicit val timeout = Timeout(10 hour)
     // println("[" + this + "]'s peers: " + peers)
     for (p <- peers) {
-      // println("asking [" + p + "] for [" + query + "]")
-      val tmp: Future[Collection[String]] = ask(p.asInstanceOf[ActorRef], _list()).mapTo[Collection[String]]
+      //println("asking [" + p + "] for [" + query + "]")
+      val tmp: Future[Collection[String]] = ask(p.asInstanceOf[ActorRef], _search(query)).mapTo[Collection[String]]
+      msgs.incrementAndGet()
       val l = Await.result(tmp, timeout.duration).asInstanceOf[Collection[String]]
+      // println("result is ready from " + p + " >>> " + this.getId)
       l.toList.foreach { q =>
       	if (q.contains(query)) {
       		result = q :: result
       	}
       }
     }
+    // println(" result is ready: " + this + " : " + result)
     result.toList
   }
 
 }
 
-sealed case class _list(var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _download(val fileName: String, var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _upload(val fileName: String, val file: Any, var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _search(val query: String, var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _register(val peer: ActorRef, var p: Option[Int] = None) extends PriorityMessage(p)
-// Messages for responses
-sealed case class _files(val files: Collection[String], var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _clients(val files: Collection[ActorRef], var p: Option[Int] = None) extends PriorityMessage(p)
-sealed case class _file(val file: Object, var p: Option[Int] = None) extends PriorityMessage(p)
+sealed case class _search(val query: String, var p: Option[Int] = None)  extends PriorityMessage(p)
+sealed case class _register(val peer: ActorRef, var p: Option[Int] = None)  extends PriorityMessage(p)
 
-class Network() extends Actor {
+object Network {
 
-  def this(name: String) = {
+  val system = ActorSystem("p2p")
 
-    this()
+  def run(querySize: Int) = {
+
+    val msgs: AtomicLong = new AtomicLong(0)
 
 	val r = new Random
 	var myList = for (i <- List.range(0, 1000)) yield ("file_" + r.nextInt(100) + "")
     val db1 = new DummyStorage(myList)
 	myList = for (i <- List.range(0, 1000)) yield ("file_" + r.nextInt(100) + "")
     val db2 = new DummyStorage(myList)
-
-    val s1 = context.actorOf(Props(new Node("s1", db1)), name = "s1")
-    val s2 = context.actorOf(Props(new Node("s2", db2)), name = "s2")
-
-    val c1 = context.actorOf(Props(new Node("c1", db1)), name = "c1")
-    val c2 = context.actorOf(Props(new Node("c2", db1)), name = "c2")
-    val c3 = context.actorOf(Props(new Node("c3", db1)), name = "c3")
-    val c4 = context.actorOf(Props(new Node("c4", db2)), name = "c4")
-    val c5 = context.actorOf(Props(new Node("c5", db2)), name = "c5")
-    val c6 = context.actorOf(Props(new Node("c6", db2)), name = "c6")
-    val c7 = context.actorOf(Props(new Node("c7", db1)), name = "c7")
-    val c8 = context.actorOf(Props(new Node("c8", db2)), name = "c8")
-
-    implicit val timeout = Timeout(5 second)
     
-    s1 ? _register(c1)
-    s1 ? _register(c2)
-    s1 ? _register(c3)
-    s2 ? _register(c4)
-    s2 ? _register(c5)
-    s2 ? _register(c6)
-    c1 ? _register(c7)
-    val lastRegistered = c4 ? _register(c8)
-	Await.ready(lastRegistered, timeout.duration)
+    val root = system.actorOf(Props(new Node("root", db1, msgs)), name = "root")
 
+    val s1 = system.actorOf(Props(new Node("s1", db1, msgs)), name = "s1")
+    val s2 = system.actorOf(Props(new Node("s2", db2, msgs)), name = "s2")
+
+    val c1 = system.actorOf(Props(new Node("c1", db1, msgs)), name = "c1")
+    val c2 = system.actorOf(Props(new Node("c2", db1, msgs)), name = "c2")
+    val c3 = system.actorOf(Props(new Node("c3", db1, msgs)), name = "c3")
+    val c4 = system.actorOf(Props(new Node("c4", db2, msgs)), name = "c4")
+    val c5 = system.actorOf(Props(new Node("c5", db2, msgs)), name = "c5")
+    val c6 = system.actorOf(Props(new Node("c6", db2, msgs)), name = "c6")
+    val c7 = system.actorOf(Props(new Node("c7", db1, msgs)), name = "c7")
+    val c8 = system.actorOf(Props(new Node("c8", db2, msgs)), name = "c8")
+    
+    implicit val timeout = Timeout(15 second)
+
+    var registered = root ? _register(s1)
+	Await.ready(registered, timeout.duration)
+	registered = root ? _register(s2)    
+	Await.ready(registered, timeout.duration)
+    registered = s1 ? _register(c1)
+	Await.ready(registered, timeout.duration)
+    registered = s1 ? _register(c2)
+	Await.ready(registered, timeout.duration)
+    registered = s1 ? _register(c3)
+	Await.ready(registered, timeout.duration)
+    registered = s2 ? _register(c4)
+	Await.ready(registered, timeout.duration)
+    registered = s2 ? _register(c5)
+	Await.ready(registered, timeout.duration)
+    registered = s2 ? _register(c6)
+	Await.ready(registered, timeout.duration)
+    registered = c1 ? _register(c7)
+	Await.ready(registered, timeout.duration)
+    registered = c4 ? _register(c8)
+	Await.ready(registered, timeout.duration)
+	// println("registered all")
+
+	import akka.dispatch.ExecutionContext
+	import system.dispatcher
+	implicit val ec = ExecutionContext.fromExecutor(system.dispatcher)
 	var start = System.currentTimeMillis
-	var n = 100
-	for (i <- List.range(1, n-1)) {
-	    s1 ! _search("14")
-	}
-	val lastSearch = s1 ? _search("14")
-	Await.ready(lastSearch, Timeout(1000 hour).duration)
+	val futures = List.fill(querySize)(ask(root, _search("_" + r.nextInt(100))).mapTo[Collection[String]])
+	val results = Future.sequence(futures)
+	Await.ready(results, Timeout(10 hour).duration)
 	var end = System.currentTimeMillis
-	println(n + "," + (end - start))
+	println(querySize + "," + msgs.get() + "," + (end - start))
 	
-	context.system.shutdown()
+    system.shutdown()
 	
-  }
-
-  def receive = {
-    case _files(l: Collection[String], p: Option[Int]) => {
-      println("Application received file list: " + l + " from: " + sender)
-    }
-    case _clients(c: Collection[ActorRef], p: Option[Int]) => {
-      println("Application search result: " + c + " from: " + sender)
-    }
   }
 
 }
 
 object Main {
 
-  val system = ActorSystem("main")
-
   def main(args: Array[String]): Unit = {
-    val app = system.actorOf(Props(new Network("p2p")), name = "p2p")
+    val app = Network.run(Integer.valueOf(args(0)))
   }
-
+  
 }
+
