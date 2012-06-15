@@ -167,15 +167,13 @@ class Stats extends Actor {
 			estats(name).append(requests)
 		}
 		case Stop => {
-			println("####### Building " + Building.topFloor + " #######")
 			pstats.foreach { case (k, v) =>
 				var sb = new StringBuilder()
-				println(k + "," + v.addString(sb, ",").toString)
+				println(Building.topFloor + "," + k + "," + v.addString(sb, ",").toString)
 			}
-			println("===================================")
 			estats.foreach { case (k, v) => 
 				var sb = new StringBuilder()
-				println(k + "," + v.addString(sb, ",").toString) 
+				println(Building.topFloor + "," + k + "," + v.addString(sb, ",").toString) 
 			}
 			context.system.shutdown
 			System.exit(0)
@@ -191,7 +189,7 @@ object Building {
 	val system: ActorSystem = ActorSystem("building")
 	val r: Random = new Random
 	
-	def start(floors: Int) = {
+	def start(floors: Int, delay: Int) = {
 	
 		topFloor = floors
 		val passengerNum = floors * 25
@@ -218,14 +216,14 @@ object Building {
 			}
 		}
 		val timer = new Timer()
-		timer.schedule(task, 60 * 1000L)
+		timer.schedule(task, delay * 60 * 1000L)
 	}	
 	
 }
 
 object Main {
 	def main(args: Array[String]) {
-		Building.start(Integer.valueOf(args(0)))
+		Building.start(Integer.valueOf(args(0), Integer.valueOf(args(1)))
 	}
 }
 
