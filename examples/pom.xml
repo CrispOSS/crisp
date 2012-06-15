@@ -36,6 +36,7 @@
 	<modules>
 		<module>p2p</module>
 		<module>primesieves</module>
+		<module>elevator</module>
 		<module>popl13-p2p</module>
 		<module>popl13-primesieves</module>
 	</modules>
