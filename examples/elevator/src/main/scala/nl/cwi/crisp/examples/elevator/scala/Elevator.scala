@@ -223,7 +223,7 @@ object Building {
 
 object Main {
 	def main(args: Array[String]) {
-		Building.start(Integer.valueOf(args(0), Integer.valueOf(args(1)))
+		Building.start(Integer.valueOf(args(0)), Integer.valueOf(args(1)))
 	}
 }
 
