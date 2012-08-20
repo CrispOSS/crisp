@@ -27,7 +27,7 @@
 			<plugins>
 				<plugin>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>2.3.2</version>
+					<version>2.5.1</version>
 					<configuration>
 						<source>1.6</source>
 						<target>1.6</target>
@@ -49,6 +49,33 @@
 					</executions>
 				</plugin>
 				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-eclipse-plugin</artifactId>
+					<version>2.9</version>
+					<configuration>
+						<downloadSources>true</downloadSources>
+						<projectnatures>
+							<projectnature>org.scala-ide.sdt.core.scalanature</projectnature>
+							<projectnature>org.eclipse.jdt.core.javanature</projectnature>
+						</projectnatures>
+						<buildcommands>
+							<buildcommand>org.scala-ide.sdt.core.scalabuilder</buildcommand>
+						</buildcommands>
+						<classpathContainers>
+							<classpathContainer>org.scala-ide.sdt.launching.SCALA_CONTAINER"</classpathContainer>
+							<classpathContainer>org.eclipse.jdt.launching.JRE_CONTAINER</classpathContainer>
+						</classpathContainers>
+						<excludes>
+							<exclude>org.scala-lang:scala-library</exclude>
+							<exclude>org.scala-lang:scala-compiler</exclude>
+						</excludes>
+						<sourceIncludes>
+							<sourceInclude>**/*.scala</sourceInclude>
+							<sourceInclude>**/*.java</sourceInclude>
+						</sourceIncludes>
+					</configuration>
+				</plugin>
+				<plugin>
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>build-helper-maven-plugin</artifactId>
 					<version>1.7</version>
@@ -61,7 +88,19 @@
 							</goals>
 							<configuration>
 								<sources>
-									<source>${basedir}/src/main/scala</source>
+									<source>src/main/scala</source>
+								</sources>
+							</configuration>
+						</execution>
+						<execution>
+							<id>add-test-source</id>
+							<phase>generate-sources</phase>
+							<goals>
+								<goal>add-test-source</goal>
+							</goals>
+							<configuration>
+								<sources>
+									<source>src/test/scala</source>
 								</sources>
 							</configuration>
 						</execution>

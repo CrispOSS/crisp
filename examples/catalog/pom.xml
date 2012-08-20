@@ -4,19 +4,19 @@
 
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>nl.cwi.crisp</groupId>
-	<name>Crisp :: Crisp API</name>
-	<artifactId>crisp-api</artifactId>
+	<groupId>nl.cwi.crisp.examples</groupId>
+	<artifactId>crisp-example-catalog</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
+	<name>Crisp :: Examples :: Catalog Search Service</name>
+	<inceptionYear>2010</inceptionYear>
 	<parent>
 		<groupId>nl.cwi.crisp</groupId>
-		<artifactId>crisp-parent</artifactId>
-		<version>1.0-SNAPSHOT</version>
+		<artifactId>crisp-examples-parent</artifactId>
+		 <version>1.0-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
-	<inceptionYear>2010</inceptionYear>
 	<description>
 	</description>
 
@@ -28,10 +28,6 @@
 			<plugin>
 				<groupId>org.scala-tools</groupId>
 				<artifactId>maven-scala-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-eclipse-plugin</artifactId>
 			</plugin>
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
@@ -52,6 +48,10 @@
 		<dependency>
 			<groupId>com.typesafe.akka</groupId>
 			<artifactId>akka-actor</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>nl.cwi.crisp</groupId>
+			<artifactId>crisp-api</artifactId>
 		</dependency>
 	</dependencies>
 
