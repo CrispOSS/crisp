@@ -34,6 +34,7 @@ case class ElevatorRequest(floor: Int, sched: () => Int) extends SchedulableMess
 case class ElevatorArrival(floor: Int, sched: () => Int) extends SchedulableMessage(Some(1), sched)
 case class ElevatorStat(name: String, requests: Int)
 case class PassengerStat(floor: Int, time: Long)
+case class PassengerStat2(requests: Int, time: Long)
 case object Stop
 
 class Elevator() extends Actor {
@@ -107,6 +108,10 @@ class Passenger() extends Actor {
 	var fromTime: Long = 0
 	var toTime: Long = 0
 	
+	var elevatorRequests: Int = 0
+	var lastElevatorArrivalRequestTime: Long = 0
+	var elevatorArrivalWaitingTime: Long = 0
+	
 	val stats: ActorRef = context.actorFor("akka://building/user/stats")
 	
 	def receive = {
@@ -125,6 +130,10 @@ class Passenger() extends Actor {
 					toTime = 0
 					onElevator.compareAndSet(true, false)
 					sender ! ElevatorRequest(from.get(), passSched)
+					elevatorRequests += 1
+					elevatorArrivalWaitingTime += (System.currentTimeMillis - lastElevatorArrivalRequestTime)
+					lastElevatorArrivalRequestTime = System.currentTimeMillis
+					stats ! PassengerStat2(elevatorRequests, elevatorArrivalWaitingTime)
 				}
 			} else {
 				if (from.get() == floor) {
@@ -171,6 +180,9 @@ class Stats extends Actor {
 	val pstats: HashMap[Int, ListBuffer[Long]] = HashMap.empty[Int, ListBuffer[Long]]
 	val estats: HashMap[String, ListBuffer[Int]] = HashMap.empty[String, ListBuffer[Int]]
 	
+	var requests: Int = 0
+	var waitingTime: Long = 0
+	
 	def receive = {
 		case PassengerStat(floors: Int, time: Long) => {
 			if (!pstats.contains(floors)) 
@@ -182,15 +194,20 @@ class Stats extends Actor {
 				estats += name -> new ListBuffer[Int]()
 			estats(name).append(requests)
 		}
+		case PassengerStat2(requests: Int, time: Long) => {
+			this.requests += requests
+			this.waitingTime += time
+		}
         case Stop => {
                 pstats.foreach { case (k, v) =>
                         var sb = new StringBuilder()
-                        println(Building.topFloor + ",B" + k + "," + v.addString(sb, ",").toString)
+                        //println(Building.topFloor + ",B" + k + "," + v.addString(sb, ",").toString)
                 }
                 estats.foreach { case (k, v) =>
                         var sb = new StringBuilder()
-                        println(Building.topFloor + "," + k + "," + v.addString(sb, ",").toString)
+                        //println(Building.topFloor + "," + k + "," + v.addString(sb, ",").toString)
                 }
+                println(Building.topFloor + "," + requests + "," + waitingTime.toDouble / requests)
                 context.system.shutdown
                 System.exit(0)
         }
