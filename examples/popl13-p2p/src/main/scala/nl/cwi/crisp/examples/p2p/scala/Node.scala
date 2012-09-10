@@ -43,11 +43,11 @@ class Node(val id: String, val storage: Storage, msgs: AtomicLong, val clients: 
     case searchResult: Collection[String] => {
     	println("received search result: " + searchResult + " from " + sender)
     }
-    case ClientDone(time: Long) => {
+    case ClientDone(method: String, time: Long) => {
       doneClients += 1
       totalTime += time
+      println(method + "," + time)
       if (doneClients == clients) {
-        println(clients + "," + totalTime)
         context.system.shutdown
       }
     }
@@ -88,7 +88,7 @@ class Node(val id: String, val storage: Storage, msgs: AtomicLong, val clients: 
 
 case class _search(val query: String, var p: Option[Int] = None)  extends PriorityMessage(p)
 case class _register(val peer: ActorRef, var p: Option[Int] = None)  extends PriorityMessage(p)
-case class ClientDone(val time: Long) extends PriorityMessage(Some(0))
+case class ClientDone(val method: String, val time: Long) extends PriorityMessage(Some(0))
 
 object Network {
 
