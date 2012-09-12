@@ -35,6 +35,7 @@ case class ElevatorArrival(floor: Int, sched: () => Int) extends SchedulableMess
 case class ElevatorStat(name: String, requests: Int)
 case class PassengerStat(floor: Int, time: Long)
 case class PassengerStat2(requests: Int, time: Long)
+case class PassengerStat3(requests: Int, time: Long, method: String)
 case object Stop
 
 class Elevator() extends Actor {
@@ -112,6 +113,12 @@ class Passenger() extends Actor {
 	var lastElevatorArrivalRequestTime: Long = 0
 	var elevatorArrivalWaitingTime: Long = 0
 	
+	val methodChooser: Double = r.nextDouble
+	val random: AtomicBoolean = new AtomicBoolean(methodChooser < 0.33)
+	val fcfs: AtomicBoolean = new AtomicBoolean(methodChooser >= 0.33 && methodChooser < 0.66)
+	val sjf: AtomicBoolean = new AtomicBoolean(methodChooser >= 0.66)
+	
+	
 	val stats: ActorRef = context.actorFor("akka://building/user/stats")
 	
 	def receive = {
@@ -133,7 +140,7 @@ class Passenger() extends Actor {
 					elevatorRequests += 1
 					elevatorArrivalWaitingTime += (System.currentTimeMillis - lastElevatorArrivalRequestTime)
 					lastElevatorArrivalRequestTime = System.currentTimeMillis
-					stats ! PassengerStat2(elevatorRequests, elevatorArrivalWaitingTime)
+					stats ! PassengerStat3(elevatorRequests, elevatorArrivalWaitingTime, method())
 				}
 			} else {
 				if (from.get() == floor) {
@@ -154,7 +161,11 @@ class Passenger() extends Actor {
 		(System.currentTimeMillis.toLong - fromTime.toLong).toInt
 	}
 	
-	def passSched(): Int = passSchedFCFS
+	def passSched(): Int = 
+		if (random.get) r.nextInt(100 * 100) else if (fcfs.get) passSchedFCFS() else passSchedSJF()
+		
+	def method(): String = 
+	  	if (random.get) "RANDOM" else if (fcfs.get) "FCFS" else "SJF"
 
 }
 
@@ -179,6 +190,8 @@ class Stats extends Actor {
 
 	val pstats: HashMap[Int, ListBuffer[Long]] = HashMap.empty[Int, ListBuffer[Long]]
 	val estats: HashMap[String, ListBuffer[Int]] = HashMap.empty[String, ListBuffer[Int]]
+	val statRequests: HashMap[String, Int] = HashMap.empty[String, Int]
+	val statWaitingTimes: HashMap[String, Long] = HashMap.empty[String, Long]
 	
 	var requests: Int = 0
 	var waitingTime: Long = 0
@@ -198,6 +211,16 @@ class Stats extends Actor {
 			this.requests += requests
 			this.waitingTime += time
 		}
+		case PassengerStat3(requests: Int, time: Long, method: String) => {
+		  if (!statRequests.contains(method))
+		    statRequests.put(method, 0)
+		  val i = statRequests.get(method).get + requests
+		  statRequests.put(method, i)
+		  if (!statWaitingTimes.contains(method))
+		    statWaitingTimes.put(method, 0)
+		  val j = statRequests.get(method).get + time
+		  statWaitingTimes.put(method, j)  
+		}
         case Stop => {
                 pstats.foreach { case (k, v) =>
                         var sb = new StringBuilder()
@@ -207,7 +230,10 @@ class Stats extends Actor {
                         var sb = new StringBuilder()
                         //println(Building.topFloor + "," + k + "," + v.addString(sb, ",").toString)
                 }
-                println(Building.topFloor + "," + requests + "," + waitingTime.toDouble / requests)
+                //println(Building.topFloor + "," + requests + "," + waitingTime.toDouble / requests)
+                statRequests.foreach { case (k, v) =>
+                  		println(Building.topFloor + "," + k + "," + v + "," + statWaitingTimes.get(k).get.toDouble / v)
+                }
                 context.system.shutdown
                 System.exit(0)
         }
