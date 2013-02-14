@@ -7,12 +7,10 @@ import java.util.Timer
 import java.util.TimerTask
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-
 import scala.collection.mutable.Buffer
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.Map
 import scala.collection.mutable.HashMap
-
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
 import akka.actor.ActorRef
@@ -26,9 +24,10 @@ import akka.util.Timeout
 import akka.routing.BroadcastRouter
 import akka.routing.RoundRobinRouter
 import akka.routing.SmallestMailboxRouter
-
 import nl.cwi.crisp.api.akka.CrispActor
 import nl.cwi.crisp.api.akka.PriorityMessage
+import scala.collection.mutable.ArrayBuffer
+import java.text.DecimalFormat
 
 case class ElevatorRequest(floor: Int, sched: () => Int) extends SchedulableMessage(Some(1), sched)
 case class ElevatorArrival(floor: Int, sched: () => Int) extends SchedulableMessage(Some(1), sched)
@@ -37,16 +36,22 @@ case class PassengerStat(floor: Int, time: Long)
 case class PassengerStat2(requests: Int, time: Long)
 case class PassengerStat3(requests: Int, time: Long, method: String)
 case object Stop
+case object Restart extends SchedulableMessage(Some(0), null)
+case object ControllerRestart
+case object StatRestart
+case object StatReport
 
 class Elevator() extends Actor {
 
-	val motor: Motor = new Motor()
+	var motor: Motor = new Motor()
 	val motorStarted: AtomicBoolean = new AtomicBoolean(false)
 	val moving: AtomicBoolean = new AtomicBoolean(false)
 	
 	val r: Random = new Random
 	val floor: AtomicInteger = new AtomicInteger(r.nextInt(Building.topFloor) + 1)
+	val initFloor: AtomicInteger = new AtomicInteger(floor.get)
 	val direction: AtomicBoolean = new AtomicBoolean(if (Math.random > 0.5) true else false)
+	val initDirection: AtomicBoolean = new AtomicBoolean(direction.get)
 	
 	var requests: List[Int] = List()
 	var controller: ActorRef = null
@@ -67,9 +72,17 @@ class Elevator() extends Actor {
 			//println(self.path.name + "," + requests.length)
 			stats ! ElevatorStat(self.path.name, requests.length)
 		}
+		case Restart => {
+		  requests = List()
+		  floor.set(initFloor.get)
+		  direction.set(initDirection.get)
+		  motorStarted.set(false)
+		  moving.set(false)
+		  motor = new Motor
+		}
 	}
 	
-	def announce() = {
+	def announce(): Any = {
 		requests = requests.filter((n) => n != floor.get())
 		if (requests.length == 0) {
 			moving.compareAndSet(true, false)
@@ -78,7 +91,7 @@ class Elevator() extends Actor {
 	}
 
 	def elevSched(): Int = {
-		100 - floor.get / requests.length
+		100 * 100 - floor.get / requests.length
 	}
 	
 	class Motor extends Thread {
@@ -91,7 +104,7 @@ class Elevator() extends Actor {
 				if (floor.get() == Building.groundFloor)
 					direction.compareAndSet(false, true)
 				announce()
-				Thread.sleep(300)
+				Thread.sleep(700)
 				//println("motor: " + self.path.name)
 			}
 		}
@@ -104,6 +117,8 @@ class Passenger() extends Actor {
 	val r: Random = new Random
 	val from: AtomicInteger = new AtomicInteger(r.nextInt(Building.topFloor) + 1)
 	val to: AtomicInteger = new AtomicInteger(r.nextInt(Building.topFloor) + 1)
+	val initFrom: AtomicInteger = new AtomicInteger(from.get)
+	val initTo: AtomicInteger = new AtomicInteger(to.get)
 	
 	val onElevator: AtomicBoolean = new AtomicBoolean(false)
 	var fromTime: Long = 0
@@ -118,6 +133,10 @@ class Passenger() extends Actor {
 	val fcfs: AtomicBoolean = new AtomicBoolean(methodChooser >= 0.33 && methodChooser < 0.66)
 	val sjf: AtomicBoolean = new AtomicBoolean(methodChooser >= 0.66)
 	
+	val useCache: AtomicBoolean = new AtomicBoolean(false)
+	val cache: ArrayBuffer[Int] = new ArrayBuffer[Int]
+	val cacheIndex: AtomicInteger = new AtomicInteger(0)
+	
 	
 	val stats: ActorRef = context.actorFor("akka://building/user/stats")
 	
@@ -128,19 +147,25 @@ class Passenger() extends Actor {
 				if (to.get() == floor) {
 					toTime = System.currentTimeMillis
 					stats ! PassengerStat(Math.abs(from.get() - to.get()), toTime - fromTime)
-					from.set(r.nextInt(Building.topFloor) + 1)
-					to.set(r.nextInt(Building.topFloor) + 1)
-					if (from.get == to.get) {
-						to.set((to.get + 1) % Building.topFloor + 1)
+					if (useCache.get && cacheIndex.get < cache.length) {
+						from.set(to.get)
+						to.set(cache(cacheIndex.get))
+						cacheIndex.incrementAndGet
+					} else if (!useCache.get) {
+						from.set(to.get)
+						to.set(r.nextInt(Building.topFloor) + 1)
+						cache.append(to.get)
 					}
-					fromTime = 0 
-					toTime = 0
-					onElevator.compareAndSet(true, false)
-					sender ! ElevatorRequest(from.get(), passSched)
-					elevatorRequests += 1
-					elevatorArrivalWaitingTime += (System.currentTimeMillis - lastElevatorArrivalRequestTime)
-					lastElevatorArrivalRequestTime = System.currentTimeMillis
-					stats ! PassengerStat3(elevatorRequests, elevatorArrivalWaitingTime, method())
+					if (!useCache.get || cacheIndex.get < cache.length) {
+						fromTime = 0 
+						toTime = 0
+						onElevator.compareAndSet(true, false)
+						sender ! ElevatorRequest(from.get(), passSched)
+						elevatorRequests += 1
+						elevatorArrivalWaitingTime += (System.currentTimeMillis - lastElevatorArrivalRequestTime)
+						lastElevatorArrivalRequestTime = System.currentTimeMillis
+						stats ! PassengerStat3(elevatorRequests, elevatorArrivalWaitingTime, method())
+					}
 				}
 			} else {
 				if (from.get() == floor) {
@@ -148,6 +173,18 @@ class Passenger() extends Actor {
 					onElevator.compareAndSet(false, true)
 				}
 			}
+		}
+		case Restart => {
+		  useCache.set(true)
+		  cacheIndex.set(0)
+		  elevatorRequests = 0
+		  elevatorArrivalWaitingTime = 0
+		  onElevator.set(false)
+		  lastElevatorArrivalRequestTime = 0
+		  fromTime = 0
+		  toTime = 0
+		  from.set(initFrom.get)
+		  to.set(initTo.get)
 		}
 	}
 
@@ -182,6 +219,15 @@ class Controller(val elevators: ActorRef, val passengers: ActorRef) extends Acto
 			// println("request: " + floor)
 			elevators ! ElevatorRequest(floor, sched)
 		}
+		case ControllerRestart => {
+		  passengers ! Restart
+		  elevators ! Restart
+		  elevators ! ElevatorRequest(Building.firstFloorRequest, () => 1)
+		}
+		case Stop => {
+		  context.system.shutdown
+		  System.exit(0)
+		}
 	}
 
 }
@@ -192,6 +238,8 @@ class Stats extends Actor {
 	val estats: HashMap[String, ListBuffer[Int]] = HashMap.empty[String, ListBuffer[Int]]
 	val statRequests: HashMap[String, Int] = HashMap.empty[String, Int]
 	val statWaitingTimes: HashMap[String, Long] = HashMap.empty[String, Long]
+	
+	val formatter: DecimalFormat = new DecimalFormat("#.#####")
 	
 	var requests: Int = 0
 	var waitingTime: Long = 0
@@ -221,7 +269,7 @@ class Stats extends Actor {
 		  val j = statRequests.get(method).get + time
 		  statWaitingTimes.put(method, j)  
 		}
-        case Stop => {
+        case StatReport => {
                 pstats.foreach { case (k, v) =>
                         var sb = new StringBuilder()
                         //println(Building.topFloor + ",B" + k + "," + v.addString(sb, ",").toString)
@@ -232,25 +280,33 @@ class Stats extends Actor {
                 }
                 //println(Building.topFloor + "," + requests + "," + waitingTime.toDouble / requests)
                 statRequests.foreach { case (k, v) =>
-                  		println(Building.topFloor + "," + k + "," + v + "," + statWaitingTimes.get(k).get.toDouble / v)
+                  		println(Building.topFloor + "," + k + "," + v + "," + formatter.format(statWaitingTimes.get(k).get.toDouble / v))
                 }
-                context.system.shutdown
-                System.exit(0)
+                Building.topFloor = Building.topFloor + 10
+        }
+        case StatRestart => {
+          pstats.clear
+          estats.clear
+          statRequests.clear
+          statWaitingTimes.clear
         }
 	}
 }
 
 object Building {
 
+	val MAX_FLOORS: Int = 100
 	var topFloor: Int = -1
 	val groundFloor: Int = 1
 
 	val system: ActorSystem = ActorSystem("building")
 	val r: Random = new Random
 	
+	var firstFloorRequest: Int = _
+	
 	def start(floors: Int, delay: Int) = {
 	
-		topFloor = floors
+		topFloor = 10
 		val passengerNum = floors * 25
 		val elevatorNum = Math.floor(Math.sqrt(floors)).toInt 
 	
@@ -267,15 +323,22 @@ object Building {
 			)
 			
 		val controller = system.actorOf(Props(new Controller(elevators, passengers)), name = "controller")
-		controller ! ElevatorRequest(r.nextInt(topFloor) + 1, () => 1)
+		firstFloorRequest = r.nextInt(topFloor) + 1
+		controller ! ElevatorRequest(firstFloorRequest, () => 1)
 		
 		val task = new TimerTask() {
 			def run() = {
-				stats ! Stop
+				if (topFloor > MAX_FLOORS) {
+				  controller ! Stop
+				} else {
+					stats ! StatReport
+					stats ! StatRestart
+					controller ! ControllerRestart
+				}
 			}
 		}
 		val timer = new Timer()
-		timer.schedule(task, delay * 60 * 1000L)
+		timer.schedule(task, 1 * 60 * 1000L, 1 * 60 * 1000L)
 	}	
 	
 }

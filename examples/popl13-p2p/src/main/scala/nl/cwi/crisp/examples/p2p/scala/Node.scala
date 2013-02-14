@@ -4,9 +4,7 @@ import java.lang.Object
 import java.util.Collection
 import java.util.Random
 import java.util.concurrent.atomic.AtomicLong
-
 import scala.collection.JavaConversions._
-
 import akka.actor.actorRef2Scala
 import akka.actor.Actor
 import akka.actor.ActorRef
@@ -17,18 +15,24 @@ import akka.dispatch.Future
 import akka.pattern.ask
 import akka.util.duration.intToDurationInt
 import akka.util.Timeout
-
 import nl.cwi.crisp.api.akka.CrispActor
 import nl.cwi.crisp.api.akka.PriorityMessage
 import nl.cwi.crisp.examples.p2p.Client
 import nl.cwi.crisp.examples.p2p.Peer
 import nl.cwi.crisp.examples.p2p.Storage
+import scala.collection.mutable.HashMap
+import scala.collection.mutable.Map
+import java.text.DecimalFormat
 
 class Node(val id: String, val storage: Storage, msgs: AtomicLong, val clients: Long) extends Actor {
 
   var peers: List[ActorRef] = List()
   var doneClients = 0
   var totalTime: Long = 0
+  
+  val statsTime: Map[String, Long] = HashMap.empty[String, Long]
+  val statsCount: Map[String, Int] = HashMap.empty[String, Int]
+  val fmt: DecimalFormat = new DecimalFormat("#.###")
   
   def getId = id
 
@@ -46,9 +50,19 @@ class Node(val id: String, val storage: Storage, msgs: AtomicLong, val clients: 
     case ClientDone(method: String, time: Long) => {
       doneClients += 1
       totalTime += time
-      println(method + "," + time)
+      if (!statsTime.contains(method))
+        statsTime.put(method, 0L)
+      if (!statsCount.contains(method))
+        statsCount.put(method, 0)
+      statsTime.put(method, time + statsTime.get(method).get)
+      statsCount.put(method, 1 + statsCount.get(method).get)
       if (doneClients == clients) {
-        context.system.shutdown
+    	  statsTime.foreach { case (k, v) =>
+    	      val c = statsCount.get(k).get
+	    	  println(doneClients + "," + k + "," + c + "," + fmt.format(v.toDouble / c))
+    	  }
+    	  context.system.shutdown
+    	  System.exit(0)
       }
     }
   }

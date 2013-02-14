@@ -1,7 +1,7 @@
 #!/bin/bash
 
-mvn compile
-for n in {5..10}; do
-	mvn -e exec:java -Dexec.mainClass="nl.cwi.crisp.examples.elevator.scala.Main" -Dexec.args="$((n)) 1" ;
+mvn -q compile
+for n in {10..10}; do
+	mvn -e -q exec:java -Dexec.mainClass="nl.cwi.crisp.examples.elevator.scala.Main" -Dexec.args="$((n)) 1" ;
 done
 
