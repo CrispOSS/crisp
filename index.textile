@@ -2,9 +2,14 @@
 layout: page
 title: Home
 ---
-
 {% include JB/setup %}
 
-h1. Features
+<div class="hero-unit">
+	<h2>Crisp</h2>
+	<p>
+	With Crisp, we follow a set of state-of-the-art scientific research in the domain of concurrent and distributed objects. 
+	The goal is to explore and introduce new techniques that will make the task of programming with concurrent object easier and more fluent.
+	</p>
+<div>
 
  
