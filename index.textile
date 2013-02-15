@@ -16,7 +16,7 @@ title:
 		<h3>Documentation</h3>
 		<p>
 			<ul>
-				<li><a href="/crisp/2013-02-01-deadlines.textile">Asynchronous messages with deadlines</a></li>
+				<li><a href="/crisp/2013/02/01/deadlines">Asynchronous messages with deadlines</a></li>
 			</ul>
 		</p>
 	</div>	

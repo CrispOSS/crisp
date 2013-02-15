@@ -6,6 +6,9 @@ layout: page
 
 <div class="row">
 
+<div class="span12">
+
+
 Crisp allows concurrent objects to send asynchronous messages with deadlines. This page walks through the feature and provides examples on how to use this feature.
 
 You can use the following syntax to send an asynchronous messages to another concurrent object with a deadline:
@@ -22,5 +25,5 @@ When a message with a deadline is sent, the response of the message is retrievab
 * If the message's deadline is missed, when @f.get()@ is called, it will cause an exception to be thrown.
 * @f.isAborted()@ can be used to check the deadline for the message is missed or not.
 
-
-</div
+</div>
+</div>
