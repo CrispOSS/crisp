@@ -12,7 +12,7 @@ title:
 </div>
 
 <div class="row">
-	<div class="span4">
+	<div class="span6">
 		<h3>Documentation</h3>
 		<p>
 			<ul>
@@ -20,4 +20,12 @@ title:
 			</ul>
 		</p>
 	</div>	
+	<div class="span6"> 
+		<h3>Links</h3>
+		<p>
+			<ul>
+				<li><a href="http://github.com/nobeh/crisp">Fork me on GitHub</a></li>
+			</ul>
+		</p>
+	</div>
 </div> 
