@@ -1,0 +1,26 @@
+---
+title: Asynchronous Messages with Deadlines
+layout: page
+---
+{% include JB/setup %}
+
+<div class="row">
+
+Crisp allows concurrent objects to send asynchronous messages with deadlines. This page walks through the feature and provides examples on how to use this feature.
+
+You can use the following syntax to send an asynchronous messages to another concurrent object with a deadline:
+
+<pre>
+var f := o ! message (params) deadline (d)
+</pre>
+
+In the above example, @message@ is the method that is executed at the side of receiver @o@, @params@ are the actual parameters of the message, and @d@ is the deadline expectation on the response of the message.
+
+A deadline @d@ should be expressed using @java.util.concurrent.TimeUnit@ abstraction. The value of @d@ denotes a _relative_ time to the current time that the sender of the message expects the response of the message to be ready. 
+
+When a message with a deadline is sent, the response of the message is retrievable in a future reference @f@. The future reference is an extension over @java.util.concurrent.Future@ that provides the following extra behavior:
+* If the message's deadline is missed, when @f.get()@ is called, it will cause an exception to be thrown.
+* @f.isAborted()@ can be used to check the deadline for the message is missed or not.
+
+
+</div

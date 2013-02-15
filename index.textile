@@ -7,8 +7,7 @@ title:
 <div class="hero-unit">
 	<h2>Crisp</h2>
 	<p>
-	With Crisp, we follow a set of state-of-the-art scientific research in the domain of concurrent and distributed objects. 
-	The goal is to explore and introduce new techniques that will make the task of programming with concurrent object easier and more fluent.
+	With Crisp, we follow a set of state-of-the-art scientific research in the domain of concurrent and distributed objects. The goal is to explore and introduce new techniques that will make the task of programming with concurrent object easier and more fluent.
 	</p>
 </div>
 
@@ -17,7 +16,7 @@ title:
 		<h3>Documentation</h3>
 		<p>
 			<ul>
-				<li>Asynchronous messages with deadlines</li>
+				<li><a href="/crisp/2013-02-01-deadlines.textile">Asynchronous messages with deadlines</a></li>
 			</ul>
 		</p>
 	</div>	
