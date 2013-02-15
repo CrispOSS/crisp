@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Home
+title: 
 ---
 {% include JB/setup %}
 
@@ -10,6 +10,15 @@ title: Home
 	With Crisp, we follow a set of state-of-the-art scientific research in the domain of concurrent and distributed objects. 
 	The goal is to explore and introduce new techniques that will make the task of programming with concurrent object easier and more fluent.
 	</p>
-<div>
+</div>
 
- 
+<div class="row">
+	<div class="span4">
+		<h3>Documentation</h3>
+		<p>
+			<ul>
+				<li>Asynchronous messages with deadlines</li>
+			</ul>
+		</p>
+	</div>	
+</div> 
