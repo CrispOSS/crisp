@@ -1,7 +1,10 @@
 ---
-layout: default
-title: New Index
+layout: page
+title: Home
 ---
 
-_Try it out_
+{% include JB/setup %}
+
+h1. Features
+
  
