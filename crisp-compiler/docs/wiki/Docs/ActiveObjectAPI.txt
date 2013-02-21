@@ -1,0 +1,85 @@
+= Active Object API =
+
+In Cacoj, a flavor of the active object pattern is developed to facilitate more fine-grained base for objects and message scheduling. Originally, in Creol, each object possesses one processor and actively participates in the process of selecting an incoming message from its message queue to be processed. In this page, we describe the architecture designed in Cacoj to provide a per-object control over scheduling of the incoming messages for each object.
+
+== Elements of Active Object API ==
+
+Each Creol class is translated to a corresponding Java class and each method is also translated to the equivalent method in Java that exposes the same behavior as the concurrent active object in Creol. To achieve this pattern in Java, we developed a concurrency API package based on `java.util.concurrent` package to enable a Java class expose asynchronous and active behavior properties. In this design, each active object is composed on the following components.
+
+'''`MethodInvocation`'''  is the central data structure that encapsulates an asynchronous method call. It holds a reference to the caller object. In future works, it will carry the priority information if provided by the caller. It is a subclass of `FutureTask`. It holds the eventual result of the method call. It can be `await`ed or `signal`ed based on the program requirements during runtime; thus, it is aware of the corresponding "thread" in which it is running. When an instance is created by the caller, there are two options how to store the it in the callee's process store:
+
+  1. The caller calls a method from the callee to store the instance. This approach may  have concurrency issues. When the method invocation is to be stored at the callee's process store, the callee may be busy doing something else; the caller should wait until the callee is free to store the instance of method invocation in its process store.
+  2. The callee directly stores the method invocation into the process store of the callee. Each active object exposes its process store as an immutable public property such that the clients of the active object may directly store the messages. Thus, the actual code executed to put the method invocation instance in the callee's process store is run in the execution thread of the caller. We adopt this approach.
+
+'''`ProcessStore`'''  is the storage data structure used to maintain the incoming method call invocations to an active object. The `ProcessStore` is an implementation of  the `Queue` interface in `java.util.concurrent` package, the implementations of which are thread-safe, i.e.  all methods in this interface operate atomically using internal locks encapsulating the implementation details for the user. It holds a reference to an instance of `PriorityManager` and `SchedulingManager` if specified (see
+below). It provides methods such as `preAdd` and `postAdd` along with `preTake` and `postTake` respectively to enable the further customization of the behavior before/after adding or taking a method invocation to/from the storage. These are extension points to enable the customization of priority or scheduling management of the method invocations. The `PriorityManager` component is a future extension to this work.
+
+'''`PriorityManager`'''  is an interface the implementations of which are supposed to provide a function to determine and resolve a final priority value in case there are different levels of priorities specified for a method invocation. This feature is used, if specified, by the process store to compute the "resolved priority" of the method invocation based on different levels of priorities specified and then add it to the storage. `PriorityManager` is a planned future extension of this work in line with the Creol language extensions.
+
+
+'''`SchedulingManager`'''  is an interface the implementations of which introduce a function to ''select''  a method invocation based on different possible criteria (such as time or data) that is either predefined or customized by the user. The scheduler manager is a component used by process store when asked to remove and provide an instance of method invocation to be executed. Thus, the implementation of the scheduling manager is responsible how to choose one method invocation out of the ones currently stored in the process store of the active object. Different flavors of the scheduling manager may include time-based, deadline-based, data-centric, or a mixture.
+
+'''`ExecutorService`'''  is an implementation of `ExecutorService` that is responsible for the execution of method invocations. Each active object holds one reference of one executor service instance. We develop an executor service to take advantage of a "thread pool" implementation; thus, each active object submits the selected method invocation by the scheduling manager to its executor service to be executed. The executor service takes advantage of the a thread factory to maintain a pool of threads to run the requested code of method invocations. The thread pool may use caching or other optimization techniques to minimize resource allocation and usage costs. 
+
+'''`ThreadFactory`'''  is an interface used by the executor service to initiate a new thread when new resources are required. We cache the threads so that we can control and tune the performance of resource allocation. The thread factory create a new instance of an "interruptible process" upon its factory call.
+
+'''`InterruptibleProcess`'''  is an extension of Java `Thread` class. A method invocation is assigned a Java thread for execution. In the original scenario in Java concurrency API, when a method is asked to `await`, it waits on the condition but actually ''releases''  the thread in JVM. This means that some of local information attached to the method execution and the thread are lost since the thread may be used for some other execution request. Thus, we need to have a version of thread that is aware of its running method invocation and vice versa. This relation helps us to preserve the thread through the time of awaiting so that the method invocation can continue just from the awaiting state. To achieve this, when the executor service is to delegate the execution to the method invocation, it notifies both the method
+invocation and the thread of each other's presence so that this relation will be preserved through the time till the method invocation is signalled to continue the 
+execution.
+
+'''`SignalAction`'''  is an ''event-based''   mechanism to control how the method invocations are signalled after awaiting. When a method invocation is preparing to await, first, it adds an instance of a signal action to the active object's process store. The signal action gets selected sometime in future and its job it to check whether the original method invocation may continue execution based on some "conditional expression" provided by `ExpressionHolder`. If it can, it signals the original method
+invocation. Otherwise, it stores another copy of itself to the active object's process store as another future method invocation. The mechanism is event-based
+and non-blocking having the advantage that it is also transparent from the view of the scheduling manager and priority manager.
+
+[[Image(cacoj-active-object-api-architecture.png, width=65%, align=center)]]
+
+== Non-blocking Event-based `await` and `signal` ==
+
+One of the significant ideas in the concurrency designed in Cacoj API is the relation amongst `MethodInvocation`, `InterruptibleProcess`, and `SignalAction`. From the user's viewpoint, an instance of a method invocation is ''interruptible'' ; i.e. `MethodInvocation` exposes `await` and `signal` through `Interruptible` interface.
+Actually, however, these methods are delegated to the corresponding `InterruptibleProcess`. Besides, `InterruptibleProcess` takes advantage of `ReentrantLock` 
+and `Condition` to expose the "await" and "signal" features.
+
+{{{
+#!java
+public boolean await() throws RuntimeException {
+	try {
+		awaitLock.lock();
+		while (this.mi.isSuspended())
+			blockedCondition.await();
+	} catch (InterruptedException e) {
+		interrupt();
+	} finally {
+		awaitLock.unlock();
+	}
+	return false;
+}
+
+public boolean signal() throws RuntimeException {
+	try {
+		awaitLock.lock();
+		blockedCondition.signalAll();
+	} finally {
+		awaitLock.unlock();
+	}
+	return false;
+}
+}}}
+
+In above code, `mi` refers to the enclosing instance of `MethodInvocation`; thus, the interruptible process awaits as long as the corresponding method invocation is suspended. Other than that, it signals the method invocation to continue from the awaiting point of the execution.
+
+In the same line, `SignalAction` takes an event-based approach to enable the pair of `MethodInvocation` and `InterruptibleProcess` act in a ''non-blocking''  manner.
+`SignalAction` holds a reference to the original `MethodInvocation` and an instance of `ExpressionHolder` the second of which is used to check whether the original method invocation is ready to continue the execution. If not, a copy of the current signal action is again stored in the process store of the corresponding active object for future checking. And, if the method invocation is ready to continue, the signal action "signals" it so that it can continue execution.  This procedure is done in
+a ''non-blocking''  and ''event-based''  way. In the following, the code snippet presents the code in which `executor` is the enclosing active object and `copy()` creates a copy instance of the same signal action instance.
+
+{{{
+#!java
+public Object call() throws Exception {
+	if (this.expressionHolder.getValue()) {
+		this.originalMI.signal();
+	} else {
+		this.executor.getProcessStore().add(copy());
+	}
+	return null;
+}
+}}}
+

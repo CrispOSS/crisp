@@ -1,0 +1,75 @@
+= Download Cacoj =
+
+Cacoj is released as a library package and is managed Sourceforge.net's file release system. Basically, you can browse through [https://sourceforge.net/projects/cacoj/files/] to download a version of Cacoj.
+
+== With dependencies ==
+A version of Cacoj's comes with all the required dependencies bundled into one file. This version is suitable for an easy and fast development. However, you should be careful if the libraries in your project overlap that of Cacoj. Dependencies are discussed [#Dependencies later] in this page. This version is usually found under the name:
+{{{
+cacoj-VERSION-jar-with-dependencies.jar
+}}}
+
+== Standalone Version ==
+A basic version of Cacoj is also provided that assumes you will provide the [#Dependencies dependencies] of Cacoj at runtime. This version is usually found under the name:
+{{{
+cacoj-VERSION.jar
+}}}
+
+== Source and Documentation ==
+Along with other artifacts, a source bundle and a API documentation can be found to download to use locally. The packages come in JAR format and are simply ZIP structures for the source and the documentations.
+
+== Dependencies ==
+Cacoj uses the following libraries during runtime:
+
+ 1. [http://www.antlr.org/ ANTLR] v3.2
+ 2. ANT-ANTLR v1.6.5
+ 3. [http://logging.apache.org/log4j/1.2/ Apache log4j] v1.2.15
+
+If you are using Maven, here is an extract of the dependencies used with Cacoj:
+{{{
+#!xml
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>antlr</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>gunit</artifactId>
+			<version>3.2</version>
+		</dependency>
+		<dependency>
+			<groupId>ant</groupId>
+			<artifactId>ant-antlr</artifactId>
+			<version>1.6.5</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.8.1</version>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.15</version>
+			<exclusions>
+				<exclusion>
+					<groupId>javax.mail</groupId>
+					<artifactId>mail</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>javax.jms</groupId>
+					<artifactId>jms</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.sun.jdmk</groupId>
+					<artifactId>jmxtools</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.sun.jmx</groupId>
+					<artifactId>jmxri</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+}}}
+

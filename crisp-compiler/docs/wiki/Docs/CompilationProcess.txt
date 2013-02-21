@@ -1,0 +1,33 @@
+= Compilation Process =
+
+The Cacoj compiler is actually an aggregator and integrator of different
+components in the compilation process of Creol into Java. The compiler first
+uses [http://www.antlr.org/ ANTLR v3] to generate the language recognizer. Then, it uses a transformation
+engine and a set of code templates to generate the equivalent target program
+such as Java based on the concurrency API:
+
+
+  1. The Creol language is expressed in a grammar in
+  ANTLR. This is used to generate a standard ANTLR lexer and parser for the
+  Creol language.
+  1. An instance of an abstract syntax tree (AST) is constructed when
+  a Creol program is input to the Creol Parser.
+  1. The AST object is preprocessed to construct a set of intermediate
+  language information, ''compilation context'', that is used in the time
+  of code generation. This phase is line with similar concepts in LLVM. This
+  phase also introduces future extension points as it is not part of the
+  standard ANTLR framework.
+  1. A tree grammar is developed for the Creol language used to walk
+  through the generated AST tree of the Creol source and generate the equivalent
+  Java code. A Creol tree walker is generated that walks through the generated
+  AST and generates the final code.
+  1. Through code generation, the Creol walker takes advantage of the
+  compilation context that is built before to fetch the required information
+  including meta method information and class properties.
+  1. For code generation, a set of code template are developed in ANTLR
+  framework using [http://www.stringtemplate.org/ StringTemplate] library. Essentially,
+  each construct in Creol has an equivalent code template snippet (as discussed
+  in previous section) that given the required information outputs the
+  equivalent Java construct. The Creol walker uses the set of code templates
+  along with the compilation context to generate the final Java code.
+

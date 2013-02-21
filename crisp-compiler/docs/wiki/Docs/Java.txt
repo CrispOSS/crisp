@@ -1,0 +1,53 @@
+= Java in Creol = 
+
+Cacoj seamlessly integrates a subset of Java language features into Creol so that it migrates Creol from just a modelling language to a full-fledged programming language. Here you can find some of the samples from this integration.
+
+== Importing from Java ==
+The first options that is essential to this feature is that you can import Java or other classes form a library that is available to the project using Cacoj. To import a Java class we use `java_import`:
+{{{
+#!java
+java_import java.util.ArrayList;
+java_import java.io.File;
+}}}
+Above lines simply import the classes that you want to use in the code.
+
+== Method calls ==
+In Creol, a method call looks like:
+{{{
+OBJECT.METHOD(in PARAMS ; out RESULTS)
+}}}
+saying that each method provide the '''input''' (in) parameters and '''output''' (out) parameters to the method separating them with a ''semicolon'' (;). In contrast, in Java, we only provide the input parameters and we receive the '''single''' result as the return value of the method:
+{{{
+#!java
+RESULT = OBJECT.METHOD(PARAMS)
+}}}
+To use a Java dot notation in Creol, you only need to provide the ''separating semicolon'' to the method signature without specifying any result parameters at the call:
+{{{
+#!java
+java_import java.util.ArrayList;
+java_import java.util.Iterator;
+/// ...
+var list : ArrayList;
+list := new ArrayList;
+var i : Iterator;
+i := list.iterator(;);
+Object next := i.next(;);
+if next.equals("some thing";) then
+  next := new String("another thing";)
+end
+}}}
+
+== Aliases and Syntax Sugars ==
+Currently, there are some aliasing that helps you do some very basic things converted to Java from Creol:
+
+|| Creol || Java ||
+|| println(PARAMS;) || System.out.println(PARAMS) ||
+
+== Not yet supported ==
+There are a set of syntax flavors that are not yet supported in this integration of Java into Creol in Cacoj:
+
+ * Static method calls such as `SomeClass.AnotherClass.someMethod(params)`
+ * Variables defined in Creol should all start with a ''small'' letter.
+
+
+

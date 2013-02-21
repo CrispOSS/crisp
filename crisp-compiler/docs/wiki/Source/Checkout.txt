@@ -1,0 +1,24 @@
+= Source Retrieval =
+
+As Cacoj has two modules, each module can be checked out separately. Cacoj uses [http://subversion.apache.org/ Subversion]. To check out the core API and the compile sources, you can use a client such as `svn` to fetch the source:
+{{{
+#!sh
+svn co https://cacoj.svn.sourceforge.net/svnroot/cacoj/cacoj my-local-folder
+}}}
+
+If you want to have the source for Cacoj's test project, you can check it out using:
+
+{{{
+#!sh
+svn co https://cacoj.svn.sourceforge.net/svnroot/cacoj/cacoj-test my-local-folder
+}}}
+
+If you are using other clients, the URL for the Cacoj's core is:
+{{{
+https://cacoj.svn.sourceforge.net/svnroot/cacoj/cacoj
+}}}
+that means the root URL for the source is `https://cacoj.svn.sourceforge.net/svnroot/cacoj` and the module name is `cacoj`. The same goes for Cacoj's test project with:
+{{{
+https://cacoj.svn.sourceforge.net/svnroot/cacoj/cacoj-test
+}}}
+and module name is `cacoj-test`.

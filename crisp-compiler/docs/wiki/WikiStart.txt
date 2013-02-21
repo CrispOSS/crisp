@@ -1,0 +1,33 @@
+= Welcome to Cacoj =
+
+Cacoj is a Creol language tool set to deploy active concurrent objects onto multicore technology. It provides a Creol to Java compiler to map asynchronous concurrent model of Creol into Java concurrent facilities.
+
+== Documentation ==
+
+ * [wiki:Docs/UserGuide User's Guide] -- How to use Cacoj
+ * [wiki:Docs/DevGuide Developer's Guide] -- How to develop Cacoj
+ * [http://cacoj.sourceforge.net/apidocs/index.html API Docuemntation] -- Browse API reference
+
+== Downloads ==
+
+ * [wiki:Docs/Download Download Cacoj] -- Download Cacoj tool set
+
+== Source ==
+
+ * [wiki:Source/ViewOnline Browse online] -- Online source repository
+ * [wiki:Source/Checkout Checkout source] -- Retrieve Cacoj source
+
+== Publications ==
+
+ * [wiki:Publications Publications] -- Academic papers on Cacoj
+
+== People ==
+
+ * [wiki:People People] -- who is involved
+
+== License ==
+ 
+ * [wiki:License License] -- Cacoj's License
+
+
+

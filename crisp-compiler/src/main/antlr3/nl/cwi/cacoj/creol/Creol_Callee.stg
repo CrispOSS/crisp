@@ -1,0 +1,211 @@
+group Creol;
+
+start_tmpl (decls) ::= <<
+<header_section_tmpl()>
+<decls>
+>>
+
+declaration_tmpl(decl) ::= <<
+<decl>
+>>
+
+class_decl_tmpl (cid, supers, attribs, initatts, with_methods, anon_methods) ::= <<
+public class <cid> <supers> {
+  
+  private BlockingQueue\<MethodInvocation\<?\>\> mailbox = new MethodInvocationHolder();
+  private ExecutorService es = Executors.newSingleThreadExecutor();
+
+  <attribs>
+  
+  <if(initatts)>
+  <initatts: var_decl_tmpl(v=it); separator=";\n">;
+  
+  <constructor_tmpl(atts=initatts, name=cid)>
+  <endif>
+  
+  <with_methods>
+  <anon_methods>
+  
+  public void init() {
+    this.es.submit(this);
+  }
+  
+  public void run() {
+    for (;;) {
+      if (this.mailbox.isEmpty()) {
+        this.es.shutdown();
+        return;
+      }
+      try {
+        System.out.println("Fetching an instance of invocation");
+        MethodInvocation\<?\> mi = this.mailbox.take();
+        mi.run();
+        System.out.println("Executed an instance of invocation: " + mi);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+  
+}
+
+>>
+
+interface_decl_tmpl (cid) ::= <<
+public interface <cid> {
+}
+
+>>
+
+implements_tmpl (clist) ::= "implements <clist>, Runnable"
+
+class_list_tmpl (celems) ::= << <celems; separator=", "> >>
+
+class_element_tmpl (ce) ::= "<ce>"
+
+attribute_list_tmpl (attlist) ::= << 
+<attlist; separator="\n"> >>
+
+constructor_tmpl (atts, name) ::= <<
+public <name>(<atts: var_decl_tmpl(v=it); separator=", ">) {
+  <atts: {this.<it.name> = <it.name>;}; separator="\n">
+}
+>>
+
+// Method declartion for 'with' (co-interface) construct in Creol
+with_def_tmpl (with_type, method) ::= <<
+// with <with_type>
+<method>
+
+>>
+
+anon_with_def_tmpl (methods) ::= <<
+// Open methods
+<methods; separator="\n">
+
+>>
+
+method_with_body_tmpl (m, stats) ::= <<
+<method_with_body_tmpl_proxy(m=m,stats=stats)>
+<method_with_body_tmpl_orig(m=m,stats=stats)>
+>>
+
+method_with_body_tmpl_proxy (m, stats) ::= <<
+public Future\<<m.returnType>\> <method_name_tmpl(m=m)> (<method_params_tmpl_final(m=m)>) {
+  MethodInvocation\<<m.returnType>\> mi = new MethodInvocation\<<m.returnType>\>(new Callable\<<m.returnType>\>() {
+    public <m.returnType> call() {
+      <if(!m.isVoidMethod)><m.returnType> result = <endif><method_name_tmpl(m=m)>_orig(<method_param_names_tmpl(m=m)>);
+      <if(!m.isVoidMethod)>return result;<else>return null;<endif>
+    }
+  });
+  mailbox.add(mi);
+  return mi; 
+}
+>>
+
+method_with_body_tmpl_orig (m, stats) ::= <<
+<method_return_tmpl(m=m)> <method_name_tmpl(m=m)>_orig (<method_params_tmpl(m=m)>) {
+  <if(!m.isVoidMethod)><method_returns_decl_tmpl(m=m)><endif>
+  <stats>
+  <method_return_stmt_tmpl(m=m)>
+}
+>>
+
+method_name_tmpl (m) ::= "<if(m.isInitMethod)>postCreate<elseif(m.isRunMethod)>preRun<else><m.name><endif>"
+method_params_tmpl (m) ::= <<<m.inparams: {<it.type.name> <it.name>}; separator=", "> >>
+method_params_tmpl_final (m) ::= <<<m.inparams: {final <it.type.name> <it.name>}; separator=", "> >>
+method_param_names_tmpl (m) ::= <<<m.inparams: {<it.name>}; separator=", "> >>
+method_return_tmpl (m) ::= <<<if(m.isVoidMethod)>void<elseif(m.isSingleReturnMethod)><first(m.outparams).type.name><else>Map<endif> >>
+method_returns_decl_tmpl (m) ::= <<
+<m.outparams: {<it.type.name> <it.name>;}; separator="\n">
+>>
+method_return_stmt_tmpl(m) ::= <<
+<if(m.isVoidMethod)>
+<elseif(m.isSingleReturnMethod)>return <first(m.outparams).name>;
+<else>
+Map <m.name>_result = new HashMap();
+<m.outparams: {<m.name>_result.put("<it.name>", <it.name>)}; separator="\n">
+return <m.name>_result;
+<endif>
+
+>>
+
+method_param_in_tmpl (param_decls) ::= "<param_decls>"
+
+method_param_out_tmpl (param_decls) ::= "<param_decls>"
+
+decl_statement_tmpl (stmt) ::= <<<if(stmt)><stmt>;<endif> >>
+
+decl_statement_with_vars_tmpl (attrib, stmt) ::= <<<if(attrib)><attrib>;<\n><endif><if(stmt)><stmt>;<endif> >>
+
+statement_multi_statements (s1, s2) ::= <<
+  <if(s1)><s1>;<endif>
+  <if(s2)><s2>;<endif>
+>>
+
+new_object_statement_tmpl (cid, plist) ::= <<new <cid>(<plist>)>>
+parameter_list_tmpl (plist) ::= "<plist>"
+
+method_call_local_sync_tmpl (method, params, result) ::= <<
+<method>(<params>)
+>>
+method_call_nonlocal_async_tmpl (label, object, method, params) ::= <<
+<object>.<method>(<params>)
+>>
+method_call_local_async_tmpl (label, object, method, params) ::= <<
+<method>(<params>)
+>>
+method_call_nonlocal_sync_tmpl (object, method, inparams, outparams) ::= <<
+<first(outparams).name> = <object>.<method>(<inparams>)
+>>
+
+if_tmpl (cond, stmt, elce) ::= <<
+if (<cond>) {
+  <stmt>
+}<if(elce)>else{
+  <elce>
+}
+<endif>
+>>
+
+statement_assign_expr (left, right) ::= "<left> = <right>"
+
+var_decl_tmpl (v, value) ::= "<type_tmpl2(t=v.type)> <v.name><if(value)> = <value><endif>"
+var_decl_single_tmpl (v, value) ::= "<var_decl_tmpl(v=v, value=value)>;"
+var_decl_list_tmpl (vdlist) ::= <<<vdlist; separator=", "> >>
+
+type_tmpl (t) ::= "<t>"
+type_tmpl2 (t) ::= <<<if(t.isLabelType)>Future\<<first(t.enclosures).name>\><else><t.name><endif> >>
+type_real_class_ident (t) ::= <<<if(t.isLabelType)>Future\<<first(t.enclosures)>\><else><t.name><endif> >>
+
+expr_tmpl (e) ::= "<e>"
+expr_or_new_tmpl (e) ::= "<e>"
+expr_list_tmpl (e1, e2) ::= "<e1>, <e2>"
+expr_xor_tmpl (left, right) ::= "<left> ^ <right>"
+expr_or_tmpl (left, right) ::= "<left> || <right>"
+expr_and_tmpl (left, right) ::= "<left> && <right>"
+expr_not_tmpl (right) ::= "!<right>"
+expr_eq_tmpl (left, right) ::= "<left> == <right>"
+expr_ne_tmpl (left, right) ::= "<left> != <right>"
+expr_cmp_tmpl (op, left, right) ::= "<left> <op> <right>"
+expr_plus_tmpl (left, right) ::= "<left> + <right>"
+expr_minus_tmpl (left, right) ::= "<right> - <left>"
+expr_mult_tmpl (left, right) ::= "<left> * <right>"
+expr_div_tmpl (left, right) ::= "<left> / <right>"
+expr_mod_tmpl (left, right) ::= "<left> % <right>"
+expr_pow_tmpl (left, right) ::= "Math.pow(<left>, <right>)"
+expr_numsgn_tmpl (ns, e) ::= "<ns><e>"
+
+comp_op_tmpl (op) ::= "<op>"
+
+atom_tmpl (a) ::= "<a>"
+atom_literal_tmpl (literal) ::= "<literal>"
+
+header_section_tmpl() ::= <<
+
+import nl.cwi.cacoj.api.proxy.*;
+
+import java.util.*;
+import java.util.concurrent.*;
+
+>>

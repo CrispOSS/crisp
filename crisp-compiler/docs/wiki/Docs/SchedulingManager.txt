@@ -1,0 +1,104 @@
+= Scheduling Manager =
+
+By default, the messages are taken out from the process store of the active object in the order with which they are put in. However, when the active object wants
+to select the next message to be processed through its process store, an instance of `SchedulingManager` may be specified to ''decide which one is the next `MethodInvocation`'' to be run. `SchedulingManager` as shown in the following code provide the following features:
+
+{{{
+#!java
+public interface SchedulingManager extends Comparator<MethodInvocation<?>> {
+
+	Boolean isPrior(MethodInvocation<?> mi1, MethodInvocation<?> mi2);
+
+	void beforeExecute(MethodInvocation<?> mi);
+
+}
+}}}
+
+ * `isPriori` should decide between the two method invocations that which one is prior; `true` means `mi1` while `false` means `mi2`, and `null` mean this is a tie.
+ * `beforeExecute` is another extension point that is just before running the ''selected'' `MethodInvocation`.
+
+
+== Scheduling based on creation time ==
+
+A simple implementation of the scheduling manager is the one forces the FIFO constraint based on the creation time of the method invocations:
+
+{{{
+#!java
+public class TimeOrderedSchedulingManager extends AbstractSchedulingManager {
+
+	private boolean lifo = false;
+
+	public TimeOrderedSchedulingManager() {
+	}
+
+	public TimeOrderedSchedulingManager(boolean lifo) {
+		this.lifo = lifo;
+	}
+
+	@Override
+	public Boolean isPrior(MethodInvocation<?> mi1, MethodInvocation<?> mi2) {
+		Long t1 = mi1.getCreatedTime();
+		Long t2 = mi2.getCreatedTime();
+		boolean prior = t1 <= t2;
+		return lifo ? prior : !prior;
+	}
+
+}
+}}}
+
+== Scheduling based on response time ==
+Another useful implementation of the scheduling manager is to provide the scheduling feature based on the response time specified for the
+method invocations:
+
+{{{
+#!java
+public class ResponseDeadlineSchedulingManager extends TimeOrderedSchedulingManager {
+
+	@Override
+	public Boolean isPrior(MethodInvocation<?> mi1, MethodInvocation<?> mi2) {
+		Long r1 = mi1.getResponseTimeout();
+		Long r2 = mi2.getResponseTimeout();
+		if (r1 == null || r2 == null) {
+			return mi1.getCreatedTime() >= mi2.getCreatedTime();
+		}
+		return r1 >= r2;
+	}
+
+	@Override
+	public void beforeExecute(MethodInvocation<?> mi) {
+		super.beforeExecute(mi);
+		Long ct = mi.getCreatedTime();
+		Long rt = mi.getResponseTimeout();
+		Long now = System.currentTimeMillis();
+		if (now > ct + rt) {
+			String message = mi + " : Expected response in [" + rt + "] millis from [" + ct
+					+ "]; now: " + now;
+			logger.error(message);
+			throw new RuntimeException(message);
+		}
+	}
+
+}
+}}}
+
+In this case, the `beforeExecute` is useful to check the time constraints of the response time expectations specified for the method invocation.
+
+== Scheduling based on priority manager ==
+A more generic approach to implement the scheduling manager is to use the priority values that are assigned through an implementation
+of [wiki:Docs/PriorityManager Priority Manager]. For instance, in the `Fibonacci` sample, we can use the information to introduce a
+scheduling manager:
+{{{
+#!java
+public class FibonacciSchedulingManager extends AbstractSchedulingManager {
+
+	@Override
+	public Boolean isPrior(MethodInvocation<?> mi1, MethodInvocation<?> mi2) {
+		Integer n1 = (Integer) mi1.getResolvedPriority().getValue();
+		Integer n2 = (Integer) mi2.getResolvedPriority().getValue();
+		boolean result = n1 >= n2;
+		return result;
+	}
+
+}
+}}}
+

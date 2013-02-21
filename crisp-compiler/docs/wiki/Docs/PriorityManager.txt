@@ -1,0 +1,75 @@
+= Priority Manager =
+
+Each active object in Cacoj, uses an instance of `ProcessStore` to maintain the messages to be executed in future. Before adding a an instance `MethodInvocation`
+to the process store, a message may be '''prioritized''' through implementation of a `PriorityManager` interface:
+
+{{{
+#!java
+public interface PriorityManager {
+
+	Priority resolve(MethodInvocation<?> mi);
+
+}
+}}}
+
+Through `resolve(MethodInvocation)`, each instance of `MethodInvocation` may be assigned a '''final''' priority value as a number to be used for 
+[wiki:Doc/SchedulingManager scheduling]. `Priority` is an abstraction over a number. As `MethodInvocation` carries different priority values
+corresponding to different levels of priority specification in future versions of Creol, a `List<Priority> getPriorities()` is available in 
+`MethodInvocation` to give out the current available priorities. It is the responsibility of the priority manager implementation to 
+calculate and map out a unique priority value through time for each instance of method invocation. The ''resolved priority'' will be used
+and set through `void setResolvedPriority(Priority priority)` in `MethodInvocation` in the process of adding a method invocation
+to the process store.
+
+== Priorities based on response time ==
+For each instance of `MethodInvocation`, an expected ''response time'' may be specified. The time distance is measured by the difference
+from the creation time of the method invocation that is stored when the instance is created. `ResponseTimePriorityManager`
+is an implementation of `PriorityManager` that assigns the priority of the method invocation based on the expected response
+time specified for the instance:
+
+{{{
+#!java
+public class ResponseTimePriorityManager implements PriorityManager {
+
+	@Override
+	public Priority resolve(final MethodInvocation<?> mi) {
+		return new Priority() {
+			@Override
+			public Number getValue() {
+				return mi.getResponseTimeout();
+			}
+		};
+	}
+
+}
+}}}
+
+== Priorities based on method call parameters ==
+There are many applications in which you need to specify and assign the priority based on the '''actual parameters''' of the enclosed method call in
+a `MethodInvocation`. Each method invocation provides the `MethodInvocationMetaData getMetaData()` that carries the meta information for the
+instance's method call including:
+ * `String getMethodName()` providing the name of the actual method called
+ * `List<Object> getActualParameters()` providing a list of actual parameters to the method call.
+
+For instance, if you need to prioritize the method invocations in `Fibonacci` sample for method `fib(n)`, you can write the following priority manager
+for such case:
+
+{{{
+#!java
+public class FibonacciPriorityManager implements PriorityManager {
+	@Override
+	public Priority resolve(final MethodInvocation<?> mi) {
+		return new Priority() {
+			@Override
+			public Number getValue() {
+                                List<Object> params = mi.getMetaData().getActualParameters();
+                                Integer n = (Integer) params.get(0);
+				return n;
+			}
+		};
+	}
+
+}
+}}}
+
+
+

@@ -1,0 +1,119 @@
+= Active Object Life Cycle =
+
+An active object operates on a multicore
+architecture. We take a "client/server" approach since each active object
+essentially behaves as a server to all the other objects as its clients that
+request a method to be executed.
+
+In the client's viewpoint, a method call is needed to be published to the server
+but in an asynchronous way. First, the client needs to construct an instance of
+method invocation that wraps around the original method call from the server.
+Then, the client needs to directly fetch the `ProcessStore` of the
+server and `add`s the instance of the method invocation to the server.
+The method or policy used to store the method invocation in the process store of
+the server is totally up to the server's process store implementation details.
+Storing a method invocation in the process store of the server takes place in
+the client side thread of execution. The following code snippet
+presents a sample generated Java code for an asynchronous method call in the code snippet for Fibonacci:
+
+{{{
+interface IFibonacci
+begin
+  with Any
+    op fibonacci(in n: Int; out f: Int)
+end
+
+class Fibonacci(n:Int) implements IFibonacci
+begin
+  op init == skip
+
+  op run == 
+  	var res: Int; var t: Label[Int]; t!fib(n); await t?; t?(res)
+
+  op fib(in n:Int; out f:Int) ==
+    var a:Int; var b:Int; var s: Label[Int]; var t:Label[Int];
+    if n = 0 then 
+    	f := 1 
+    else
+      if n = 1 then 
+      	f := 1 
+      else
+  	    s!fib(n - 1); t!fib(n - 2); s?(a); t?(b); f := a + b
+      end
+    end
+
+with Any
+  op fibonacci(in n:Int; out f:Int) == 
+  	var t:Label[Int]; t!fib(n); t?(f)
+  
+end
+}}}
+
+And the generated code is:
+{{{
+#!java
+public Integer fibonacci(final Integer n) {
+	Integer f;
+	final Future<Integer> t;
+	MethodInvocation mi4 = new MethodInvocation(new Callable() {
+		public Integer call() {
+			return fib(n); 	
+		}
+	}, this);
+	getProcessStore().add(mi4); 
+	t = mi4;
+	try {
+		f = t.get(); 
+	} catch (InterruptedException e) {
+		throw new RuntimeException(e);
+	} catch (ExecutionException e) {
+		throw new RuntimeException(e);
+	}
+	return f;
+}
+}}}
+
+Thus, through time, there are concurrent clients that are
+storing instances of method invocation into the server's process store and since
+the process store implementation encapsulate the mechanisms for concurrency and
+data safety, the clients have no concern on data synchronization and concurrency
+issues such as mutual exclusion.
+
+In a parallel side of the story, when an active object comes to life, it 
+constantly tries to fetch an instance of method invocation from its process
+store for execution. The process store uses its instance of
+`SchedulingManager` to choose one of the method invocations. Although,
+there are predefined scheduling managers in Cacoj, it can be easily developed
+and customized based on the requirements by the user. In the following, the code snippet
+presents the main loop for the active object. Each `ActiveObject` also
+implements `Runnable`. So, when
+an active object gets initialized, it simply adds `this` (itself) to
+its executor service component. This procedure ''deploys''  the active object
+onto the executor service corresponding to the underlying multicore platform.
+
+{{{
+#!java
+public void init() {
+	this.es.submit(this);
+}
+
+public void run() {
+	for (;;) {
+		try {
+			MethodInvocation mi = this.ps.take();
+			this.currentProcess = mi;
+			this.es.submit(mi);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+}
+}}}
+
+The sequence of events in this API is depicted in the following figure. It should be ''noted''  that the two parallel lines of
+executions are presented in the same diagram just to present the ideas but as
+it was described client and server run independently. 
+
+
+[[Image(cacoj-active-object-lifecycle.png, center)]]
+

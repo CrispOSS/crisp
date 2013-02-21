@@ -1,0 +1,379 @@
+group Creol;
+
+start_tmpl (decls) ::= <<
+<header_section_tmpl()>
+<decls>
+>>
+
+declaration_tmpl(decl) ::= <<
+<decl>
+>>
+
+class_decl_tmpl (cid, supers, attribs, initatts, with_methods, anon_methods, has_init, context) ::= <<
+
+class <cid> <supers><if(!supers)> implements ActiveObject <endif> {
+  
+  private ProcessStore ps = new SimpleProcessStore(this);
+  private ExecutorService es = new InterruptibleThreadPoolExecutor(
+    new InterruptibleThreadFactory(this));
+    
+  private final Logger logger = Logger.getLogger(getClass());
+  
+  private MethodInvocation currentProcess = null;
+
+  <attribs>
+  
+  <if(initatts)>
+  <initatts: var_decl_tmpl(v=it); separator=";\n">;
+  
+  <constructor_tmpl(atts=initatts, name=cid, has_init=has_init)>
+  <else>
+  <constructor_default_tmpl(name=cid)>
+  <endif>
+  
+  <with_methods>
+  <anon_methods>
+  
+  public void run() {
+    for (;;) {
+      try {
+        MethodInvocation mi = this.ps.take();
+        this.currentProcess = mi;
+        this.es.submit(mi);
+        //log("submitted message [id="+mi.getId()+"] for execution");
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+  
+  public void init() {
+    this.es.submit(this);
+    log(this + " initialized as an active object");
+  }
+  
+  @SuppressWarnings("unchecked")
+  public void shutdown() {
+    MethodInvocation mi = new MethodInvocation(new Callable() {
+      public Object call() {
+        es.shutdown();
+        log(this + " initiated shutdown");
+        return null;
+      }
+    }, this);
+  }
+  
+  public ProcessStore getProcessStore() {
+    return ps;
+  }
+  
+  private void addSignalActionNotifier(MethodInvocation mi, ExpressionHolder expressionHolder) {
+    SignalAction sa = new SignalAction(mi, expressionHolder, this);
+    MethodInvocation saMI = new MethodInvocation(sa, mi);
+    this.ps.add(saMI);
+  }
+  
+  private void sleep(long s) {
+    try {
+      // Thread.sleep(s);
+    } catch (Exception e) {
+    }
+  }
+  
+  private void log(String msg) {
+    // logger.info(msg);
+  }
+  
+  <generate_priority_manager_classes_tmpl(context=context, mlp=context.methodLevelPriorities, mp=context.methodMap)>
+
+}
+
+>>
+
+interface_decl_tmpl (cid) ::= <<
+
+interface <cid> {
+}
+
+>>
+
+implements_tmpl (clist) ::= "implements <clist>, ActiveObject"
+
+class_list_tmpl (celems) ::= << <celems; separator=", "> >>
+
+class_element_tmpl (ce) ::= "<ce>"
+
+attribute_list_tmpl (attlist) ::= << 
+<attlist; separator="\n"> >>
+
+constructor_tmpl (atts, name, has_init) ::= <<
+public <name>(<atts: var_decl_tmpl(v=it); separator=", ">) {
+  <atts: {this.<it.name> = <it.name>;}; separator="\n">
+  <if(has_init)>postCreate();<endif>
+  init();
+  sleep(1000);
+}
+>>
+constructor_default_tmpl(name) ::= <<
+public <name>() {
+  postCreate();
+  init();
+  sleep(1000);
+}
+>>
+
+// Method declartion for 'with' (co-interface) construct in Creol
+with_def_tmpl (with_type, methods) ::= <<
+// with <with_type>
+<methods; separator="\n">
+
+>>
+
+anon_with_def_tmpl (methods) ::= <<
+// Open methods
+<methods; separator="\n">
+
+>>
+
+method_with_body_tmpl (m, stats, priority) ::= <<
+<method_with_body_tmpl_orig(m=m, stats=stats, priority=priority)>
+>>
+
+method_level_priority_tmpl(expr) ::= "<expr>"
+
+method_with_body_tmpl_proxy (m, stats) ::= <<
+public Future\<<m.returnType>\> <method_name_tmpl(m=m)> (<method_params_tmpl_final(m=m)>) {
+  MethodInvocation\<<m.returnType>\> mi = new MethodInvocation\<<m.returnType>\>(new Callable\<<m.returnType>\>() {
+    public <m.returnType> call() {
+      <if(!m.isVoidMethod)><m.returnType> result = <endif><method_name_tmpl(m=m)>_orig(<method_param_names_tmpl(m=m)>);
+      <if(!m.isVoidMethod)>return result;<else>return null;<endif>
+    }
+  }, this);
+  ps.add(mi);
+  return mi; 
+}
+>>
+
+method_with_body_tmpl_orig (m, stats, priority) ::= <<
+
+@SuppressWarnings("unchecked")
+public <method_return_tmpl(m=m)> <method_name_tmpl(m=m)> (<method_params_tmpl_final(m=m)>) {
+  /* with priority: <m.priorityExpression> */
+  <if(!m.isVoidMethod)><method_returns_decl_tmpl(m=m)><endif>
+  <stats> 
+  <method_return_stmt_tmpl(m=m)>
+}
+
+>>
+
+method_name_tmpl (m) ::= "<if(m.isInitMethod)>postCreate<elseif(m.isRunMethod)>preRun<else><m.name><endif>"
+method_params_tmpl (m) ::= <<<m.inparams: {<it.type.name> <it.name>}; separator=", "> >>
+method_params_tmpl_final (m) ::= <<<m.inparams: {final <it.type.name> <it.name>}; separator=", "> >>
+method_param_names_tmpl (m) ::= <<<m.inparams: {<it.name>}; separator=", "> >>
+method_return_tmpl (m) ::= <<<if(m.isVoidMethod)>void<elseif(m.isSingleReturnMethod)><first(m.outparams).type.name><else>Map<endif> >>
+method_returns_decl_tmpl (m) ::= <<
+<m.outparams: {<it.type.name> <it.name>;}; separator="\n">
+>>
+method_return_stmt_tmpl(m) ::= <<
+<if(m.isVoidMethod)>
+<elseif(m.isSingleReturnMethod)>return <first(m.outparams).name>;
+<else>
+Map <m.name>_result = new HashMap();
+<m.outparams: {<m.name>_result.put("<it.name>", <it.name>)}; separator="\n">
+return <m.name>_result;
+<endif>
+
+>>
+
+method_param_in_tmpl (param_decls) ::= "<param_decls>"
+
+method_param_out_tmpl (param_decls) ::= "<param_decls>"
+
+decl_statement_tmpl (stmt) ::= <<<if(stmt)><stmt>;<endif> >>
+
+decl_statement_with_vars_tmpl (attrib, stmt) ::= <<<if(attrib)><attrib>;<\n><endif><if(stmt)><stmt>;<endif> >>
+
+statement_multi_statements (s1, s2) ::= <<
+  <if(s1)><s1>;<endif>
+  <if(s2)><s2>;<endif>
+>>
+
+new_object_statement_tmpl (cid, plist) ::= <<new <cid>(<plist>)>>
+parameter_list_tmpl (plist) ::= "<plist>"
+
+method_call_local_sync_tmpl (method, params, result) ::= <<
+<method>(<params>)
+>>
+method_call_local_async_tmpl (label, object, method, params, mi_var_name, method_return_type) ::= <<
+MethodInvocation <mi_var_name> = new MethodInvocation(new Callable() {
+  public <if(method_return_type)><method_return_type><else>Object<endif> call() {
+    <if(method_return_type)>
+    return <method>(<params>);<else>
+    <method>(<params>);
+    return null;<endif>
+  }
+}, this);
+<mi_var_name>.initMetaData("<method>", null<if(params)>, <params><endif>);
+ps.add(<mi_var_name>);
+<if(label)><label> = <mi_var_name>;<endif>
+>>
+method_call_nonlocal_async_tmpl (label, object, method, params, mi_var_name, method_return_type, results) ::= <<
+<if(label)>MethodInvocation\<<label>\><else>MethodInvocation<endif> <mi_var_name> = new <if(label)>MethodInvocation\<<label>\><else>MethodInvocation<endif>(
+  new <if(label)>Callable\<<label>\><else>Callable<endif>() {
+	  public <if(method_return_type)><method_return_type><else>Object<endif> call() {
+	    <if(method_return_type)>
+	    return <object>.<method>(<params>);<else>
+	    <object>.<method>(<params>);
+	    return null;<endif>
+	  }
+  }, this);
+<mi_var_name>.initMetaData("<method>", null<if(params)>, <params><endif>);
+((ProcessStoreAware) <object>).getProcessStore().add(<mi_var_name>);
+//<if(first(results))><first(results).name> = <mi_var_name><endif>
+>>
+
+//method_call_nonlocal_sync_tmpl (object, method, inparams, outparams) ::= <<
+//<if(outparams)><first(outparams).name> = <endif><object>.<method>(<inparams>)
+//>>
+
+method_call_nonlocal_sync_tmpl (object, calls) ::= <<
+<if(first(calls).outparams)>
+<first(first(calls).outparams).name> = <object>.<first(calls).method>(<first(calls).inparams; separator=", "> )
+<else>
+<object>.<calls; separator=".">
+<endif>
+>>
+method_call_nonlocal_sync_single_tmpl (method, inparams, outparams) ::= "<method>(<inparams>)"
+non_local_syn_call_tmpl (st) ::= "<st>"
+
+await_expr_tmpl (e, mi_var_name) ::= <<
+while (!(<e>)) {
+  addSignalActionNotifier(<mi_var_name>, new ExpressionHolder() {
+    public Boolean getValue() {
+      return (<e>);
+    }
+  });
+  ((Interruptible) <mi_var_name>).await();
+} 
+>>
+
+awaiting_future_value_tmpl (id) ::= "<id>.isDone()"
+
+release_tmpl () ::= <<
+>>
+
+future_value_get_tmpl(id, values) ::= <<
+try {
+  <first(values).name> = <id>.get();
+} catch (InterruptedException e) {
+  throw new RuntimeException(e);
+} catch (ExecutionException e) {
+  throw new RuntimeException(e);
+}
+>>
+
+if_tmpl (cond, stmt, elce) ::= <<
+if (<cond>) {
+  <stmt>;
+}<if(elce)>else{
+  <elce>;
+}
+<endif>
+>>
+
+statement_assign_expr (left, right) ::= "<left> = <right>"
+
+var_decl_tmpl (v, value) ::= "<type_tmpl2(t=v.type)> <v.name><if(value)> = <value><endif>"
+var_decl_single_tmpl (v, value) ::= "<var_decl_tmpl(v=v, value=value)>;"
+var_decl_list_tmpl (vdlist) ::= <<<vdlist; separator=", "> >>
+
+type_tmpl (t) ::= "<t>"
+type_tmpl2 (t) ::= <<<if(t.isLabelType)>final Future\<<first(t.enclosures).name>\><else><t.name><endif> >>
+type_real_class_ident (t) ::= <<<if(t.isLabelType)>Future\<<first(t.enclosures)>\><else><t.name><endif> >>
+
+expr_tmpl (e) ::= "<e>"
+expr_or_new_tmpl (e) ::= "<e>"
+expr_list_tmpl (e1, e2) ::= "<e1>, <e2>"
+expr_xor_tmpl (left, right) ::= "<left> ^ <right>"
+expr_or_tmpl (left, right) ::= "<left> || <right>"
+expr_and_tmpl (left, right) ::= "<left> && <right>"
+expr_not_tmpl (right) ::= "!<right>"
+expr_eq_tmpl (left, right) ::= "<left> == <right>"
+expr_ne_tmpl (left, right) ::= "<left> != <right>"
+expr_cmp_tmpl (op, left, right) ::= "<op>" /// BUG
+expr_plus_tmpl (left, right) ::= "<left> + <right>"
+expr_minus_tmpl (left, right) ::= "<left> - <right>"
+expr_mult_tmpl (left, right) ::= "<left> * <right>"
+expr_div_tmpl (left, right) ::= "<left> / <right>"
+expr_mod_tmpl (left, right) ::= "<left> % <right>"
+expr_pow_tmpl (left, right) ::= "Math.pow(<left>, <right>)"
+expr_numsgn_tmpl (ns, e) ::= "<ns><e>"
+
+comp_op_tmpl (op) ::= "<op>"
+
+atom_tmpl (a) ::= "<a>"
+atom_literal_tmpl (literal) ::= "<literal>"
+
+generate_priority_manager_classes_tmpl (context, mlp, mp) ::= <<
+  
+  private final static Map\<String, Class\> priorityManagers = new HashMap\<String, Class\>();
+  
+<mlp.keys: {methodName|
+
+  public static class PriorityManager_<methodName> implements PriorityManager {
+  
+    <method_params_tmpl(m=mp.(methodName))>;
+    
+    @Override
+    public Priority resolve(MethodInvocation mi) {
+      return new Priority() {
+          public Number getValue() {
+              return <mlp.(methodName)>;
+          }
+      };
+    }
+    
+  }
+  
+}>
+
+  static {
+    fillPriorityManagerClasses();
+  }
+  
+  private static void fillPriorityManagerClasses() {
+    <mlp.keys: {methodName| priorityManagers.put("<methodName>", PriorityManager_<methodName>.class);}>
+  }
+  
+  public Class getPriorityManagerClass(String methodName) {
+    return priorityManagers.get(methodName);
+  }
+  
+  public boolean hasMethodLevelPriorities() {
+    return !priorityManagers.keySet().isEmpty(); 
+  }
+
+>>
+
+header_section_tmpl() ::= <<
+
+import nl.cwi.cacoj.api.*;
+import nl.cwi.cacoj.api.concurrent.*;
+import nl.cwi.cacoj.api.priority.*;
+import nl.cwi.cacoj.api.processstore.*;
+
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.*;
+
+import org.apache.log4j.Logger;
+>>
+
+// Java
+j_import_decl_tmpl (url) ::= <<
+import <url>;
+
+>>
+j_import_expr_tmpl (jids) ::= << <jids; separator="."> >>
+j_identifier_tmpl (id) ::= "<id>"
+

@@ -1,0 +1,7 @@
+= Online Source View  =
+Cacoj source has two major modules:
+
+ * [https://sourceforge.net/apps/trac/cacoj/browser/cacoj '''Cacoj'''] that is the core API and the compiler tool set. Another version is also available [http://cacoj.svn.sourceforge.net/viewvc/cacoj/cacoj/ here].
+ * [https://sourceforge.net/apps/trac/cacoj/browser/cacoj-test '''Cacaj Test'''] that is a test project to demonstrate Cacoj's features and test its different functionalities. Another version is also available [http://cacoj.svn.sourceforge.net/viewvc/cacoj/cacoj-test/ here].
+
+Read [wiki:Source/Checkout more] on how to check out the source.

@@ -1,0 +1,22 @@
+= Build Cacoj's source =
+
+To start with:
+
+ 1. You need to [wiki:Source/Checkout check out] the source of Cacoj. 
+ 2. Cacoj uses [http://maven.apache.org Maven] v3 for its build management. Grab it and [http://maven.apache.org/users/index.html set up] the Maven repository for local usage.
+ 3. Using a terminal now, you can compile Cacoj:
+{{{
+#!sh
+mvn -e -DskipTests=true compile
+}}}
+The option `-DskipTests=true` is because you do not need to run the tests.
+ 4. You can also install Cacoj in your local repository so that if you develop Cacoj, you will have your own version:
+{{{
+#!sh
+mvn -e -DskipTests=true install
+}}}
+ 5. If you want to have an eclipse settings for the source to be used in the IDE:
+{{{
+#!sh
+mvn eclipse:eclipse
+}}}

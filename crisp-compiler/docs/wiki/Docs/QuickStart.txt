@@ -1,0 +1,60 @@
+= Quick Start Guide =
+
+In this short guide, we briefly guide you through the steps to 
+use Cacoj in a project.
+
+== Download ==
+The first step is to download Cacoj. The easiest bundle of Cacoj
+you can use is the one '''with all dependencies''' put together for the
+ease of use. You can download it [https://sourceforge.net/projects/cacoj/files/ here].
+
+== Compile Creol to Java ==
+You can either use `java` or ANT as another alternative to compile Creol to Java.
+
+=== Compiling with `java` ===
+To compile a Creol to Java, simply run `javac` as follows:
+{{{
+#!sh
+java -classpath /path/to/cacoj-VERSION-jar-with-dependencies.jar nl.cwi.cacoj.creol.CreolCompilerApp [-base DIRECTORY] -source CREOL_SOURCE
+}}}
+
+Here, if `DIRECTORY` is provided, the generated code will be placed there. `CREOL_SOURCE` points to Creol program source.
+
+=== Compiling with ANT ===
+A convenient way to use Cacoj is to use ANT that makes it easier to integrate Cacoj into your project. Here follows a simple ANT script how to use to compile a Creol source to Java. Here it first defines a `macro` in ANT to make it easy to reuse the compiler target in different cases.
+
+{{{
+#!xml
+<project name="cacoj-test" basedir=".">
+
+	<path id="libs">
+		<pathelement location="/path/to/cacoj-VERSION-jar-with-dependencies.jar" />
+	</path>
+
+	<target name="creolc-Sample">
+		<creolc base="${basedir}/src/main/java/" source="${basedir}/src/main/resources/creol/Sample.creol" />
+	</target>
+
+	<macrodef name="creolc">
+		<attribute name="base" default="${basedir}/src/main/java/" />
+		<attribute name="source" />
+		<sequential>
+			<echo>Base location: @{base}</echo>
+			<echo>Source location: @{source}</echo>
+			<java classname="nl.cwi.cacoj.creol.CreolCompilerApp" fork="true">
+				<arg value="-base" />
+				<arg value="@{base}" />
+				<arg value="-source" />
+				<arg value="@{source}" />
+				<classpath refid="libs">
+				</classpath>
+			</java>
+		</sequential>
+	</macrodef>
+</project>
+}}}
+
+== Sample Cacoj Project ==
+There is a sample project that could browsed [https://sourceforge.net/apps/trac/cacoj/browser/cacoj-test online] or checked out for more examples.
+
+

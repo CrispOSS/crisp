@@ -1,0 +1,10 @@
+= Cacoj User Guide =
+
+In this section, you can find resources on how to use Cacoj in a project.
+
+ * [wiki:Docs/QuickStart Quick Start Guide]
+ * [wiki:Docs/Java Java in Creol]
+ * [wiki:Docs/PriorityManager Priority Manager]
+ * [wiki:Docs/SchedulingManager Scheduling Manager]
+
+

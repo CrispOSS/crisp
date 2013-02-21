@@ -1,0 +1,128 @@
+= Creol Compiler: From Creol to Java =
+
+Each Creol class is translated to a corresponding Java class. The Java class
+contains a public immutable field \lstinline{ps} of type
+`ProcessStore` to store the method invocations from the clients. The
+Java class also owns a private field `es` of type
+`ExecutorService`; the component in control of the thread pool of
+interruptible processes. Thus, generally, a class `Fibonacci` with sample code in
+[wiki:Docs/ActiveObjectLifeCycle this page] will be translated into the following Java code:
+
+{{{
+#!java
+class Fibonacci implements IFibonacci, ActiveObject {
+	private final AbstractProcessStore ps = new SimpleProcessStore();
+	private final ExecutorService es = new InterruptibleProcessPoolExecutor(
+			new InterruptibleProcessFactory());
+	private MethodInvocation currentProcess;
+			
+	// translations in between
+	
+	public AbstractProcessStore getProcessStore() {
+		return ps;
+	}
+
+}
+}}}
+
+Each method in the Creol class is translated to one method in Java. Each method
+invocation in Creol, on the other hand, will involve the construction of an
+instance of an anonymous implementation of the interface `Callable`.
+For instance, the method `fibonacci (n; f)` along with its method
+calls in `Fibonacci` sample code is translated to the following Java:
+
+{{{
+#!java
+public Integer fibonacci(final Integer n) {
+	Integer f;
+	final Future<Integer> t;
+	MethodInvocation mi4 = new MethodInvocation(new Callable() {
+		public Integer call() {
+			return fib(n); 	
+		}
+	}, this);
+	getProcessStore().add(mi4); 
+	t = mi4;
+	try {
+		f = t.get(); 
+	} catch (InterruptedException e) {
+		throw new RuntimeException(e);
+	} catch (ExecutionException e) {
+		throw new RuntimeException(e);
+	}
+	return f;
+}
+}}}
+
+The variable `mi4`, as an instance of `MethodInvocation`, 
+wraps the original method invocation and is added to
+the process store of the callee object. Note that `mi4`
+provides a `Future` return value that can be used to fetch the
+eventual result of the original method invocation. The corresponding redefinition
+of `call` method provides the actual trigger for the execution of 
+`fib(n)` method. 
+As it can be seen in this sample, the concept of a `Label` in Creol
+in translated to an instance of a `Future` in Java. The `Future`
+in Java has the property that when `get()` is called, it releases the processor until the
+value is ready or the process is cancelled. Thus, the encapsulation corresponds
+to the same in Creol with `Label`.
+
+In this regards, it is interesting to see how `await` in Creol is
+translated to Java using Cacoj compiler. The `init` method makes a perfect sample to elaborate on it. In this method, there
+is a need to wait for the result of `Fibonacci` computation and then return the
+final result of this call. However, until the intermediate results are ready,
+the process should release and wait. The corresponding translated code in Java
+is shown here:
+
+{{{
+#!java
+Integer res;
+final Future<Integer> t;
+MethodInvocation mi1 = new MethodInvocation(new Callable() {
+	public Integer call() {
+		return fib(n);
+	}
+}, this);
+ps.add(mi1);
+t = mi1;
+while (!(t.isDone())) {
+	addSignalActionNotifier(mi1, new ExpressionHolder() { 
+	        public Boolean getValue() {
+				return (t.isDone());
+		}
+	});
+	((Interruptible) mi1).await();
+}
+try {
+	res = t.get();
+} catch (InterruptedException e) {
+	throw new RuntimeException(e);
+} catch (ExecutionException e) {
+	throw new RuntimeException(e);
+}
+}}}
+
+An instance of `SignalAction`
+is created and stored in the process store for future execution. The expression
+that this instance should check is that whether the `Future` value for
+`t` is ready or not. Thus, whenever the signal action gets a chance to
+execute, it checks whether the final result is ready or not. If not, it again
+queues a copy of itself to the process store. Otherwise, the result is ready and
+the method call finishes. ''Note''  that 
+`while` is a not a busy wait loop. When the processor is given back,
+it tries to check the condition and if it is not satisfied it should again
+release the processor. In addition,
+the method `addSignalActionNotifier` is a template method that is
+included for every active object during translation.
+
+{{{
+#!java
+private void addSignalActionNotifier(MethodInvocation mi, ExpressionHolder expressionHolder) {
+	SignalAction sa = new SignalAction(mi, expressionHolder, this);
+	MethodInvocation saMI = new MethodInvocation(sa, mi);
+	this.ps.add(saMI);
+}
+}}}
+
+
+
