@@ -43,5 +43,8 @@ class DataProcessor begin
 end
 </pre>
 
+In the above, @DataProcessor@ is responsible for dispatching different data object to remote nodes to process the data and then collect the data results and publish them. To do so, the data processor first tries to estimate a _deadline_ based on the data object itself. When deadline is estimated, the process is delegated to the remote data processor node with the known deadline. The result of the data processing is captured in a future value @f@. Getting the results from the future blocks until the results are ready or the data processing has failed possibly because of a deadline miss. If the deadline is missed, it can be detected using @f.isAborted()@ to distinguish from other cases. 
+
+
 </div>
 </div>
