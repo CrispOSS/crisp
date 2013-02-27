@@ -25,5 +25,23 @@ When a message with a deadline is sent, the response of the message is retrievab
 * If the message's deadline is missed, when @f.get()@ is called, it will cause an exception to be thrown.
 * @f.isAborted()@ can be used to check the deadline for the message is missed or not.
 
+The following sample code presents an actor that uses messages with deadline:
+
+<pre>
+class DataProcessor begin
+	op process(d: Data) == 
+		var p := allocDataProcessor(d)
+		var D := estimateDeadline(d)
+		var f := 
+			p ! process (d) deadline (D)
+		try {
+			publishResult(f.get())
+		} catch (Exception x) {
+			if (f.isAborted)
+				notifyFailure(d)
+		}
+end
+</pre>
+
 </div>
 </div>
